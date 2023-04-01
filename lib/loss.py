@@ -1,55 +1,52 @@
 import matplotlib
 import matplotlib.pyplot as plt
-
 import numpy as np
-
 import torch
 import torch.nn.functional as F
 
+from lib.exceptions import EmptyTensorError, NoGradientError
 from lib.utils import (
-    grid_positions,
-    upscale_positions,
     downscale_positions,
+    grid_positions,
+    imshow_image,
     savefig,
-    imshow_image
+    upscale_positions,
 )
-from lib.exceptions import NoGradientError, EmptyTensorError
 
-matplotlib.use('Agg')
+matplotlib.use("Agg")
 
 
 def loss_function(
-        model, batch, device, margin=1, safe_radius=4, scaling_steps=3, plot=False
+    model, batch, device, margin=1, safe_radius=4, scaling_steps=3, plot=False
 ):
-    output = model({
-        'image1': batch['image1'].to(device),
-        'image2': batch['image2'].to(device)
-    })
+    output = model(
+        {"image1": batch["image1"].to(device), "image2": batch["image2"].to(device)}
+    )
 
     loss = torch.tensor(np.array([0], dtype=np.float32), device=device)
     has_grad = False
 
     n_valid_samples = 0
-    for idx_in_batch in range(batch['image1'].size(0)):
+    for idx_in_batch in range(batch["image1"].size(0)):
         # Annotations
-        depth1 = batch['depth1'][idx_in_batch].to(device)  # [h1, w1]
-        intrinsics1 = batch['intrinsics1'][idx_in_batch].to(device)  # [3, 3]
-        pose1 = batch['pose1'][idx_in_batch].view(4, 4).to(device)  # [4, 4]
-        bbox1 = batch['bbox1'][idx_in_batch].to(device)  # [2]
+        depth1 = batch["depth1"][idx_in_batch].to(device)  # [h1, w1]
+        intrinsics1 = batch["intrinsics1"][idx_in_batch].to(device)  # [3, 3]
+        pose1 = batch["pose1"][idx_in_batch].view(4, 4).to(device)  # [4, 4]
+        bbox1 = batch["bbox1"][idx_in_batch].to(device)  # [2]
 
-        depth2 = batch['depth2'][idx_in_batch].to(device)
-        intrinsics2 = batch['intrinsics2'][idx_in_batch].to(device)
-        pose2 = batch['pose2'][idx_in_batch].view(4, 4).to(device)
-        bbox2 = batch['bbox2'][idx_in_batch].to(device)
+        depth2 = batch["depth2"][idx_in_batch].to(device)
+        intrinsics2 = batch["intrinsics2"][idx_in_batch].to(device)
+        pose2 = batch["pose2"][idx_in_batch].view(4, 4).to(device)
+        bbox2 = batch["bbox2"][idx_in_batch].to(device)
 
         # Network output
-        dense_features1 = output['dense_features1'][idx_in_batch]
+        dense_features1 = output["dense_features1"][idx_in_batch]
         c, h1, w1 = dense_features1.size()
-        scores1 = output['scores1'][idx_in_batch].view(-1)
+        scores1 = output["scores1"][idx_in_batch].view(-1)
 
-        dense_features2 = output['dense_features2'][idx_in_batch]
+        dense_features2 = output["dense_features2"][idx_in_batch]
         _, h2, w2 = dense_features2.size()
-        scores2 = output['scores2'][idx_in_batch]
+        scores2 = output["scores2"][idx_in_batch]
 
         all_descriptors1 = F.normalize(dense_features1.view(c, -1), dim=0)
         descriptors1 = all_descriptors1
@@ -62,8 +59,14 @@ def loss_function(
         try:
             pos1, pos2, ids = warp(
                 pos1,
-                depth1, intrinsics1, pose1, bbox1,
-                depth2, intrinsics2, pose2, bbox2
+                depth1,
+                intrinsics1,
+                pose1,
+                bbox1,
+                depth2,
+                intrinsics2,
+                pose2,
+                bbox2,
             )
         except EmptyTensorError:
             continue
@@ -80,58 +83,49 @@ def loss_function(
             downscale_positions(pos2, scaling_steps=scaling_steps)
         ).long()
         descriptors2 = F.normalize(
-            dense_features2[:, fmap_pos2[0, :], fmap_pos2[1, :]],
-            dim=0
+            dense_features2[:, fmap_pos2[0, :], fmap_pos2[1, :]], dim=0
         )
-        positive_distance = 2 - 2 * (
-            descriptors1.t().unsqueeze(1) @ descriptors2.t().unsqueeze(2)
-        ).squeeze()
+        positive_distance = (
+            2
+            - 2
+            * (descriptors1.t().unsqueeze(1) @ descriptors2.t().unsqueeze(2)).squeeze()
+        )
 
         all_fmap_pos2 = grid_positions(h2, w2, device)
         position_distance = torch.max(
-            torch.abs(
-                fmap_pos2.unsqueeze(2).float() -
-                all_fmap_pos2.unsqueeze(1)
-            ),
-            dim=0
+            torch.abs(fmap_pos2.unsqueeze(2).float() - all_fmap_pos2.unsqueeze(1)),
+            dim=0,
         )[0]
         is_out_of_safe_radius = position_distance > safe_radius
         distance_matrix = 2 - 2 * (descriptors1.t() @ all_descriptors2)
         negative_distance2 = torch.min(
-            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.,
-            dim=1
+            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.0, dim=1
         )[0]
 
         all_fmap_pos1 = grid_positions(h1, w1, device)
         position_distance = torch.max(
-            torch.abs(
-                fmap_pos1.unsqueeze(2).float() -
-                all_fmap_pos1.unsqueeze(1)
-            ),
-            dim=0
+            torch.abs(fmap_pos1.unsqueeze(2).float() - all_fmap_pos1.unsqueeze(1)),
+            dim=0,
         )[0]
         is_out_of_safe_radius = position_distance > safe_radius
         distance_matrix = 2 - 2 * (descriptors2.t() @ all_descriptors1)
         negative_distance1 = torch.min(
-            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.,
-            dim=1
+            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.0, dim=1
         )[0]
 
-        diff = positive_distance - torch.min(
-            negative_distance1, negative_distance2
-        )
+        diff = positive_distance - torch.min(negative_distance1, negative_distance2)
 
         scores2 = scores2[fmap_pos2[0, :], fmap_pos2[1, :]]
 
         loss = loss + (
-            torch.sum(scores1 * scores2 * F.relu(margin + diff)) /
-            torch.sum(scores1 * scores2)
+            torch.sum(scores1 * scores2 * F.relu(margin + diff))
+            / torch.sum(scores1 * scores2)
         )
 
         has_grad = True
         n_valid_samples += 1
 
-        if plot and batch['batch_idx'] % batch['log_interval'] == 0:
+        if plot and batch["batch_idx"] % batch["log_interval"] == 0:
             pos1_aux = pos1.cpu().numpy()
             pos2_aux = pos2.cpu().numpy()
             k = pos1_aux.shape[1]
@@ -140,44 +134,224 @@ def loss_function(
             plt.figure()
             plt.subplot(1, n_sp, 1)
             im1 = imshow_image(
-                batch['image1'][idx_in_batch].cpu().numpy(),
-                preprocessing=batch['preprocessing']
+                batch["image1"][idx_in_batch].cpu().numpy(),
+                preprocessing=batch["preprocessing"],
             )
             plt.imshow(im1)
             plt.scatter(
-                pos1_aux[1, :], pos1_aux[0, :],
-                s=0.25**2, c=col, marker=',', alpha=0.5
+                pos1_aux[1, :],
+                pos1_aux[0, :],
+                s=0.25**2,
+                c=col,
+                marker=",",
+                alpha=0.5,
             )
-            plt.axis('off')
+            plt.axis("off")
             plt.subplot(1, n_sp, 2)
-            plt.imshow(
-                output['scores1'][idx_in_batch].data.cpu().numpy(),
-                cmap='Reds'
-            )
-            plt.axis('off')
+            plt.imshow(output["scores1"][idx_in_batch].data.cpu().numpy(), cmap="Reds")
+            plt.axis("off")
             plt.subplot(1, n_sp, 3)
             im2 = imshow_image(
-                batch['image2'][idx_in_batch].cpu().numpy(),
-                preprocessing=batch['preprocessing']
+                batch["image2"][idx_in_batch].cpu().numpy(),
+                preprocessing=batch["preprocessing"],
             )
             plt.imshow(im2)
             plt.scatter(
-                pos2_aux[1, :], pos2_aux[0, :],
-                s=0.25**2, c=col, marker=',', alpha=0.5
+                pos2_aux[1, :],
+                pos2_aux[0, :],
+                s=0.25**2,
+                c=col,
+                marker=",",
+                alpha=0.5,
             )
-            plt.axis('off')
+            plt.axis("off")
             plt.subplot(1, n_sp, 4)
-            plt.imshow(
-                output['scores2'][idx_in_batch].data.cpu().numpy(),
-                cmap='Reds'
+            plt.imshow(output["scores2"][idx_in_batch].data.cpu().numpy(), cmap="Reds")
+            plt.axis("off")
+            savefig(
+                "train_vis/%s.%02d.%02d.%d.png"
+                % (
+                    "train" if batch["train"] else "valid",
+                    batch["epoch_idx"],
+                    batch["batch_idx"] // batch["log_interval"],
+                    idx_in_batch,
+                ),
+                dpi=300,
             )
-            plt.axis('off')
-            savefig('train_vis/%s.%02d.%02d.%d.png' % (
-                'train' if batch['train'] else 'valid',
-                batch['epoch_idx'],
-                batch['batch_idx'] // batch['log_interval'],
-                idx_in_batch
-            ), dpi=300)
+            plt.close()
+
+    if not has_grad:
+        raise NoGradientError
+
+    loss = loss / n_valid_samples
+
+    return loss
+
+
+def loss_function_qxs(
+    model, batch, device, margin=1, safe_radius=4, scaling_steps=3, plot=False
+):
+    output = model(
+        {"image1": batch["image1"].to(device), "image2": batch["image2"].to(device)}
+    )
+
+    loss = torch.tensor(np.array([0], dtype=np.float32), device=device)
+    has_grad = False
+
+    n_valid_samples = 0
+    for idx_in_batch in range(batch["image1"].size(0)):
+        # Annotations
+        # depth1 = batch['depth1'][idx_in_batch].to(device)  # [h1, w1]
+        # intrinsics1 = batch['intrinsics1'][idx_in_batch].to(device)  # [3, 3]
+        # pose1 = batch['pose1'][idx_in_batch].view(4, 4).to(device)  # [4, 4]
+        # bbox1 = batch['bbox1'][idx_in_batch].to(device)  # [2]
+
+        # depth2 = batch['depth2'][idx_in_batch].to(device)
+        # intrinsics2 = batch['intrinsics2'][idx_in_batch].to(device)
+        # pose2 = batch['pose2'][idx_in_batch].view(4, 4).to(device)
+        # bbox2 = batch['bbox2'][idx_in_batch].to(device)
+
+        # Network output
+        dense_features1 = output["dense_features1"][idx_in_batch]
+        c, h1, w1 = dense_features1.size()  # 512，32，32
+        scores1 = output["scores1"][idx_in_batch].view(-1)  # 1024
+
+        dense_features2 = output["dense_features2"][idx_in_batch]
+        _, h2, w2 = dense_features2.size()
+        scores2 = output["scores2"][idx_in_batch]
+
+        all_descriptors1 = F.normalize(dense_features1.view(c, -1), dim=0)
+        descriptors1 = all_descriptors1  # [512, 1024=32*32]
+
+        all_descriptors2 = F.normalize(dense_features2.view(c, -1), dim=0)
+        descriptors2 = all_descriptors2  # [512, 1024=32*32]
+
+        # Warp the positions from image 1 to image 2
+        fmap_pos1 = grid_positions(h1, w1, device)
+        pos1 = upscale_positions(fmap_pos1, scaling_steps=scaling_steps)  # [2, 1024]
+        try:
+            pos1, pos2, ids = warp(
+                pos1,
+                depth1,
+                intrinsics1,
+                pose1,
+                bbox1,
+                depth2,
+                intrinsics2,
+                pose2,
+                bbox2,
+            )
+        except EmptyTensorError:
+            continue
+        fmap_pos1 = fmap_pos1[:, ids]
+        descriptors1 = descriptors1[:, ids]
+        scores1 = scores1[ids]
+
+        # Skip the pair if not enough GT correspondences are available
+        if ids.size(0) < 128:
+            continue
+
+        # Descriptors at the corresponding positions
+        fmap_pos2 = torch.round(
+            downscale_positions(pos2, scaling_steps=scaling_steps)
+        ).long()
+        descriptors2 = F.normalize(
+            dense_features2[:, fmap_pos2[0, :], fmap_pos2[1, :]], dim=0
+        )
+
+        positive_distance = (
+            2
+            - 2
+            * (descriptors1.t().unsqueeze(1) @ descriptors2.t().unsqueeze(2)).squeeze()
+        )
+
+        all_fmap_pos2 = grid_positions(h2, w2, device)
+        position_distance = torch.max(
+            torch.abs(fmap_pos2.unsqueeze(2).float() - all_fmap_pos2.unsqueeze(1)),
+            dim=0,
+        )[0]
+        is_out_of_safe_radius = position_distance > safe_radius
+        distance_matrix = 2 - 2 * (descriptors1.t() @ all_descriptors2)
+        negative_distance2 = torch.min(
+            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.0, dim=1
+        )[0]
+
+        all_fmap_pos1 = grid_positions(h1, w1, device)
+        position_distance = torch.max(
+            torch.abs(fmap_pos1.unsqueeze(2).float() - all_fmap_pos1.unsqueeze(1)),
+            dim=0,
+        )[0]
+        is_out_of_safe_radius = position_distance > safe_radius
+        distance_matrix = 2 - 2 * (descriptors2.t() @ all_descriptors1)
+        negative_distance1 = torch.min(
+            distance_matrix + (1 - is_out_of_safe_radius.float()) * 10.0, dim=1
+        )[0]
+
+        diff = positive_distance - torch.min(negative_distance1, negative_distance2)
+
+        scores2 = scores2[fmap_pos2[0, :], fmap_pos2[1, :]]
+
+        loss = loss + (
+            torch.sum(scores1 * scores2 * F.relu(margin + diff))
+            / torch.sum(scores1 * scores2)
+        )
+
+        has_grad = True
+        n_valid_samples += 1
+
+        if plot and batch["batch_idx"] % batch["log_interval"] == 0:
+            pos1_aux = pos1.cpu().numpy()
+            pos2_aux = pos2.cpu().numpy()
+            k = pos1_aux.shape[1]
+            col = np.random.rand(k, 3)
+            n_sp = 4
+            plt.figure()
+            plt.subplot(1, n_sp, 1)
+            im1 = imshow_image(
+                batch["image1"][idx_in_batch].cpu().numpy(),
+                preprocessing=batch["preprocessing"],
+            )
+            plt.imshow(im1)
+            plt.scatter(
+                pos1_aux[1, :],
+                pos1_aux[0, :],
+                s=0.25**2,
+                c=col,
+                marker=",",
+                alpha=0.5,
+            )
+            plt.axis("off")
+            plt.subplot(1, n_sp, 2)
+            plt.imshow(output["scores1"][idx_in_batch].data.cpu().numpy(), cmap="Reds")
+            plt.axis("off")
+            plt.subplot(1, n_sp, 3)
+            im2 = imshow_image(
+                batch["image2"][idx_in_batch].cpu().numpy(),
+                preprocessing=batch["preprocessing"],
+            )
+            plt.imshow(im2)
+            plt.scatter(
+                pos2_aux[1, :],
+                pos2_aux[0, :],
+                s=0.25**2,
+                c=col,
+                marker=",",
+                alpha=0.5,
+            )
+            plt.axis("off")
+            plt.subplot(1, n_sp, 4)
+            plt.imshow(output["scores2"][idx_in_batch].data.cpu().numpy(), cmap="Reds")
+            plt.axis("off")
+            savefig(
+                "train_vis/%s.%02d.%02d.%d.png"
+                % (
+                    "train" if batch["train"] else "valid",
+                    batch["epoch_idx"],
+                    batch["batch_idx"] // batch["log_interval"],
+                    idx_in_batch,
+                ),
+                dpi=300,
+            )
             plt.close()
 
     if not has_grad:
@@ -217,7 +391,7 @@ def interpolate_depth(pos, depth):
 
     valid_corners = torch.min(
         torch.min(valid_top_left, valid_top_right),
-        torch.min(valid_bottom_left, valid_bottom_right)
+        torch.min(valid_bottom_left, valid_bottom_right),
     )
 
     i_top_left = i_top_left[valid_corners]
@@ -239,13 +413,12 @@ def interpolate_depth(pos, depth):
     # Valid depth
     valid_depth = torch.min(
         torch.min(
-            depth[i_top_left, j_top_left] > 0,
-            depth[i_top_right, j_top_right] > 0
+            depth[i_top_left, j_top_left] > 0, depth[i_top_right, j_top_right] > 0
         ),
         torch.min(
             depth[i_bottom_left, j_bottom_left] > 0,
-            depth[i_bottom_right, j_bottom_right] > 0
-        )
+            depth[i_bottom_right, j_bottom_right] > 0,
+        ),
     )
 
     i_top_left = i_top_left[valid_depth]
@@ -275,10 +448,10 @@ def interpolate_depth(pos, depth):
     w_bottom_right = dist_i_top_left * dist_j_top_left
 
     interpolated_depth = (
-        w_top_left * depth[i_top_left, j_top_left] +
-        w_top_right * depth[i_top_right, j_top_right] +
-        w_bottom_left * depth[i_bottom_left, j_bottom_left] +
-        w_bottom_right * depth[i_bottom_right, j_bottom_right]
+        w_top_left * depth[i_top_left, j_top_left]
+        + w_top_right * depth[i_top_right, j_top_right]
+        + w_bottom_left * depth[i_bottom_left, j_bottom_left]
+        + w_bottom_right * depth[i_bottom_right, j_bottom_right]
     )
 
     pos = torch.cat([i.view(1, -1), j.view(1, -1)], dim=0)
@@ -290,37 +463,38 @@ def uv_to_pos(uv):
     return torch.cat([uv[1, :].view(1, -1), uv[0, :].view(1, -1)], dim=0)
 
 
-def warp(
-        pos1,
-        depth1, intrinsics1, pose1, bbox1,
-        depth2, intrinsics2, pose2, bbox2
-):
+def warp(pos1, depth1, intrinsics1, pose1, bbox1, depth2, intrinsics2, pose2, bbox2):
     device = pos1.device
 
     Z1, pos1, ids = interpolate_depth(pos1, depth1)
 
     # COLMAP convention
-    u1 = pos1[1, :] + bbox1[1] + .5
-    v1 = pos1[0, :] + bbox1[0] + .5
+    u1 = pos1[1, :] + bbox1[1] + 0.5
+    v1 = pos1[0, :] + bbox1[0] + 0.5
 
     X1 = (u1 - intrinsics1[0, 2]) * (Z1 / intrinsics1[0, 0])
     Y1 = (v1 - intrinsics1[1, 2]) * (Z1 / intrinsics1[1, 1])
 
-    XYZ1_hom = torch.cat([
-        X1.view(1, -1),
-        Y1.view(1, -1),
-        Z1.view(1, -1),
-        torch.ones(1, Z1.size(0), device=device)
-    ], dim=0)
-    XYZ2_hom = torch.chain_matmul(pose2, torch.inverse(pose1), XYZ1_hom)
-    XYZ2 = XYZ2_hom[: -1, :] / XYZ2_hom[-1, :].view(1, -1)
+    XYZ1_hom = torch.cat(
+        [
+            X1.view(1, -1),
+            Y1.view(1, -1),
+            Z1.view(1, -1),
+            torch.ones(1, Z1.size(0), device=device),
+        ],
+        dim=0,
+    )
+    # XYZ2_hom = torch.chain_matmul(pose2, torch.inverse(pose1), XYZ1_hom)
+    XYZ2_hom = torch.linalg.multi_dot((pose2, torch.inverse(pose1), XYZ1_hom))
+    XYZ2 = XYZ2_hom[:-1, :] / XYZ2_hom[-1, :].view(1, -1)
 
+    # uv2_hom = torch.matmul(intrinsics2, XYZ2)
     uv2_hom = torch.matmul(intrinsics2, XYZ2)
-    uv2 = uv2_hom[: -1, :] / uv2_hom[-1, :].view(1, -1)
+    uv2 = uv2_hom[:-1, :] / uv2_hom[-1, :].view(1, -1)
 
-    u2 = uv2[0, :] - bbox2[1] - .5
-    v2 = uv2[1, :] - bbox2[0] - .5
-    uv2 = torch.cat([u2.view(1, -1),  v2.view(1, -1)], dim=0)
+    u2 = uv2[0, :] - bbox2[1] - 0.5
+    v2 = uv2[1, :] - bbox2[0] - 0.5
+    uv2 = torch.cat([u2.view(1, -1), v2.view(1, -1)], dim=0)
 
     annotated_depth, pos2, new_ids = interpolate_depth(uv_to_pos(uv2), depth2)
 

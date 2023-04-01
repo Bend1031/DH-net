@@ -99,8 +99,10 @@ class D2Net(nn.Module):
                 self.load_state_dict(torch.load(model_file, map_location='cpu')['model'])
 
     def forward(self, batch):
+        # batch size
         b = batch['image1'].size(0)
 
+        #The output of torch.cat() is a tensor with dimension (2*batch_size, 3, 224, 224)
         dense_features = self.dense_feature_extraction(
             torch.cat([batch['image1'], batch['image2']], dim=0)
         )
