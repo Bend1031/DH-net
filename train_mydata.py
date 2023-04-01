@@ -33,12 +33,12 @@ def parse_args():
     parser.add_argument(
         "--dataset_path", type=str, required=True, help="path to the dataset"
     )
-    parser.add_argument(
-        "--scene_info_path",
-        type=str,
-        required=True,
-        help="path to the processed scenes",
-    )
+    # parser.add_argument(
+    #     "--scene_info_path",
+    #     type=str,
+    #     required=True,
+    #     help="path to the processed scenes",
+    # )
 
     parser.add_argument(
         "--preprocessing",
@@ -49,7 +49,7 @@ def parse_args():
     parser.add_argument(
         "--model_file",
         type=str,
-        default="models/d2_ots.pth",
+        default="models/d2_tf.pth",
         help="path to the full model",
     )
 
@@ -289,7 +289,7 @@ for epoch_idx in range(start_epoch, start_epoch + args.num_epochs):
         "%s.%02d.pth" % (args.checkpoint_prefix, epoch_idx),
     )
     # 更新学习率,每3个epoch学习率减半
-    if (epoch_idx + 2) % 3 == 0:
+    if (epoch_idx) % 3 == 0:
         for param_group in optimizer.param_groups:
             param_group["lr"] *= 0.5
             print("learning rate is updated to {}".format(param_group["lr"]))
