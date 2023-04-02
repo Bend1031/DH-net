@@ -1,12 +1,9 @@
-import argparse
 import os
 import shutil
-import warnings
 
 import numpy as np
 import torch
 import torch.optim as optim
-import torch.optim.lr_scheduler as lr_scheduler
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -14,6 +11,7 @@ from lib.dataset import MegaDepthDataset, QxslabSarOptDataset
 from lib.exceptions import NoGradientError
 from lib.loss import loss_function, loss_function_qxs
 from lib.model import D2Net
+from lib.utils import parse_args
 
 #%%init cuda and seed
 # CUDA
@@ -26,82 +24,7 @@ if use_cuda:
     torch.cuda.manual_seed(1)
 np.random.seed(1)
 
-#%% Argument parsing
-def parse_args():
-    parser = argparse.ArgumentParser(description="Training script")
-
-    parser.add_argument(
-        "--dataset_path", type=str, required=True, help="path to the dataset"
-    )
-    # parser.add_argument(
-    #     "--scene_info_path",
-    #     type=str,
-    #     required=True,
-    #     help="path to the processed scenes",
-    # )
-
-    parser.add_argument(
-        "--preprocessing",
-        type=str,
-        default="caffe",
-        help="image preprocessing (caffe or torch)",
-    )
-    parser.add_argument(
-        "--model_file",
-        type=str,
-        default="models/d2_tf.pth",
-        help="path to the full model",
-    )
-
-    parser.add_argument(
-        "--num_epochs", type=int, default=10, help="number of training epochs"
-    )
-    parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
-    parser.add_argument("--batch_size", type=int, default=1, help="batch size")
-    parser.add_argument(
-        "--num_workers", type=int, default=4, help="number of workers for data loading"
-    )
-
-    parser.add_argument(
-        "--use_validation",
-        dest="use_validation",
-        action="store_true",
-        help="use the validation split",
-    )
-    parser.set_defaults(use_validation=False)
-
-    parser.add_argument(
-        "--log_interval", type=int, default=250, help="loss logging interval"
-    )
-
-    parser.add_argument(
-        "--log_file", type=str, default="log.txt", help="loss logging file"
-    )
-
-    parser.add_argument(
-        "--plot", dest="plot", action="store_true", help="plot training pairs"
-    )
-    parser.set_defaults(plot=False)
-
-    parser.add_argument(
-        "--checkpoint_directory",
-        type=str,
-        default="checkpoints",
-        help="directory for training checkpoints",
-    )
-    parser.add_argument(
-        "--checkpoint_prefix",
-        type=str,
-        default="d2",
-        help="prefix for training checkpoints",
-    )
-
-    return parser.parse_args()
-
-
 args = parse_args()
-
-
 print(args)
 #%% Create the folders
 # Create the folders for plotting if need be

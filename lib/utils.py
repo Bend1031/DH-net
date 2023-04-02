@@ -1,7 +1,7 @@
+import argparse
+
 import matplotlib.pyplot as plt
-
 import numpy as np
-
 import torch
 
 from lib.exceptions import EmptyTensorError
@@ -12,49 +12,45 @@ def preprocess_image(image, preprocessing=None):
     image = np.transpose(image, [2, 0, 1])
     if preprocessing is None:
         pass
-    elif preprocessing == 'caffe':
+    elif preprocessing == "caffe":
         # RGB -> BGR
-        image = image[:: -1, :, :]
+        image = image[::-1, :, :]
         # Zero-center by mean pixel
         mean = np.array([103.939, 116.779, 123.68])
         image = image - mean.reshape([3, 1, 1])
-    elif preprocessing == 'torch':
+    elif preprocessing == "torch":
         image /= 255.0
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
         image = (image - mean.reshape([3, 1, 1])) / std.reshape([3, 1, 1])
     else:
-        raise ValueError('Unknown preprocessing parameter.')
+        raise ValueError("Unknown preprocessing parameter.")
     return image
 
 
 def imshow_image(image, preprocessing=None):
     if preprocessing is None:
         pass
-    elif preprocessing == 'caffe':
+    elif preprocessing == "caffe":
         mean = np.array([103.939, 116.779, 123.68])
         image = image + mean.reshape([3, 1, 1])
         # RGB -> BGR
-        image = image[:: -1, :, :]
-    elif preprocessing == 'torch':
+        image = image[::-1, :, :]
+    elif preprocessing == "torch":
         mean = np.array([0.485, 0.456, 0.406])
         std = np.array([0.229, 0.224, 0.225])
         image = image * std.reshape([3, 1, 1]) + mean.reshape([3, 1, 1])
         image *= 255.0
     else:
-        raise ValueError('Unknown preprocessing parameter.')
+        raise ValueError("Unknown preprocessing parameter.")
     image = np.transpose(image, [1, 2, 0])
     image = np.round(image).astype(np.uint8)
     return image
 
 
 def grid_positions(h, w, device, matrix=False):
-    lines = torch.arange(
-        0, h, device=device
-    ).view(-1, 1).float().repeat(1, w)
-    columns = torch.arange(
-        0, w, device=device
-    ).view(1, -1).float().repeat(h, 1)
+    lines = torch.arange(0, h, device=device).view(-1, 1).float().repeat(1, w)
+    columns = torch.arange(0, w, device=device).view(1, -1).float().repeat(h, 1)
     if matrix:
         return torch.stack([lines, columns], dim=0)
     else:
@@ -102,7 +98,7 @@ def interpolate_dense_features(pos, dense_features, return_corners=False):
 
     valid_corners = torch.min(
         torch.min(valid_top_left, valid_top_right),
-        torch.min(valid_bottom_left, valid_bottom_right)
+        torch.min(valid_bottom_left, valid_bottom_right),
     )
 
     i_top_left = i_top_left[valid_corners]
@@ -132,10 +128,10 @@ def interpolate_dense_features(pos, dense_features, return_corners=False):
     w_bottom_right = dist_i_top_left * dist_j_top_left
 
     descriptors = (
-        w_top_left * dense_features[:, i_top_left, j_top_left] +
-        w_top_right * dense_features[:, i_top_right, j_top_right] +
-        w_bottom_left * dense_features[:, i_bottom_left, j_bottom_left] +
-        w_bottom_right * dense_features[:, i_bottom_right, j_bottom_right]
+        w_top_left * dense_features[:, i_top_left, j_top_left]
+        + w_top_right * dense_features[:, i_top_right, j_top_right]
+        + w_bottom_left * dense_features[:, i_bottom_left, j_bottom_left]
+        + w_bottom_right * dense_features[:, i_bottom_right, j_bottom_right]
     )
 
     pos = torch.cat([i.view(1, -1), j.view(1, -1)], dim=0)
@@ -143,12 +139,15 @@ def interpolate_dense_features(pos, dense_features, return_corners=False):
     if not return_corners:
         return [descriptors, pos, ids]
     else:
-        corners = torch.stack([
-            torch.stack([i_top_left, j_top_left], dim=0),
-            torch.stack([i_top_right, j_top_right], dim=0),
-            torch.stack([i_bottom_left, j_bottom_left], dim=0),
-            torch.stack([i_bottom_right, j_bottom_right], dim=0)
-        ], dim=0)
+        corners = torch.stack(
+            [
+                torch.stack([i_top_left, j_top_left], dim=0),
+                torch.stack([i_top_right, j_top_right], dim=0),
+                torch.stack([i_bottom_left, j_bottom_left], dim=0),
+                torch.stack([i_bottom_right, j_bottom_right], dim=0),
+            ],
+            dim=0,
+        )
         return [descriptors, pos, ids, corners]
 
 
@@ -159,9 +158,76 @@ def savefig(filepath, fig=None, dpi=None):
 
     plt.subplots_adjust(0, 0, 1, 1, 0, 0)
     for ax in fig.axes:
-        ax.axis('off')
+        ax.axis("off")
         ax.margins(0, 0)
         ax.xaxis.set_major_locator(plt.NullLocator())
         ax.yaxis.set_major_locator(plt.NullLocator())
 
-    fig.savefig(filepath, pad_inches=0, bbox_inches='tight', dpi=dpi)
+    fig.savefig(filepath, pad_inches=0, bbox_inches="tight", dpi=dpi)
+
+
+def parse_args():
+    """Argument parsing"""
+    parser = argparse.ArgumentParser(description="Training script")
+
+    parser.add_argument(
+        "--dataset_path", type=str, required=True, help="path to the dataset"
+    )
+
+    parser.add_argument(
+        "--preprocessing",
+        type=str,
+        default="caffe",
+        help="image preprocessing (caffe or torch)",
+    )
+    parser.add_argument(
+        "--model_file",
+        type=str,
+        default="models/d2_tf.pth",
+        help="path to the full model",
+    )
+
+    parser.add_argument(
+        "--num_epochs", type=int, default=10, help="number of training epochs"
+    )
+    parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
+    parser.add_argument("--batch_size", type=int, default=1, help="batch size")
+    parser.add_argument(
+        "--num_workers", type=int, default=4, help="number of workers for data loading"
+    )
+
+    parser.add_argument(
+        "--use_validation",
+        dest="use_validation",
+        action="store_true",
+        help="use the validation split",
+    )
+    parser.set_defaults(use_validation=False)
+
+    parser.add_argument(
+        "--log_interval", type=int, default=250, help="loss logging interval"
+    )
+
+    parser.add_argument(
+        "--log_file", type=str, default="log.txt", help="loss logging file"
+    )
+
+    parser.add_argument(
+        "--plot", dest="plot", action="store_true", help="plot training pairs"
+    )
+    parser.set_defaults(plot=False)
+
+    parser.add_argument(
+        "--checkpoint_directory",
+        type=str,
+        default="checkpoints",
+        help="directory for training checkpoints",
+    )
+    parser.add_argument(
+        "--checkpoint_prefix",
+        type=str,
+        default="d2",
+        help="prefix for training checkpoints",
+    )
+
+    return parser.parse_args()
