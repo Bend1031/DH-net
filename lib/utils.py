@@ -193,7 +193,7 @@ def parse_args():
     parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
     parser.add_argument(
-        "--num_workers", type=int, default=4, help="number of workers for data loading"
+        "--num_workers", type=int, default=0, help="number of workers for data loading"
     )
 
     parser.add_argument(
