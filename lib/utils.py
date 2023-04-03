@@ -177,7 +177,7 @@ def parse_args():
     parser.add_argument(
         "--preprocessing",
         type=str,
-        default="caffe",
+        default="torch",
         help="image preprocessing (caffe or torch)",
     )
     parser.add_argument(
