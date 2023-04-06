@@ -4,6 +4,7 @@ import shutil
 import numpy as np
 import torch
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
@@ -15,6 +16,9 @@ from lib.utils import parse_args
 
 #%%init cuda and seed
 # CUDA
+writer_train_loss = SummaryWriter("./runs/train_loss")
+writer_valid_loss = SummaryWriter("./runs/valid_loss")
+
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
 
@@ -164,6 +168,10 @@ def process_epoch(
         if train:
             loss.backward()
             optimizer.step()
+    if train:
+        writer_train_loss.add_scalar("Loss", np.mean(epoch_losses), epoch_idx)
+    else:
+        writer_valid_loss.add_scalar("Loss", np.mean(epoch_losses), epoch_idx)
 
     log_file.write(
         "[%s] epoch %d - avg_loss: %f\n"
