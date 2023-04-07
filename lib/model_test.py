@@ -98,10 +98,12 @@ class HardDetectionModule(nn.Module):
         b, c, h, w = batch.size()
         device = batch.device
 
+        #计算深度方向上的最大值
         depth_wise_max = torch.max(batch, dim=1)[0]
         is_depth_wise_max = (batch == depth_wise_max)
         del depth_wise_max
 
+        #计算局部最大值
         local_max = F.max_pool2d(batch, 3, stride=1, padding=1)
         is_local_max = (batch == local_max)
         del local_max

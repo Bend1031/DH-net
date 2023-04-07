@@ -14,3 +14,4 @@ vlfeat
 *.d2-net
 QXSLAB_SAROPT
 runs
+datasets
