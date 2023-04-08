@@ -3,6 +3,7 @@ import scipy
 import scipy.io
 import scipy.misc
 import torch
+from PIL import Image
 
 from lib.model_test import D2Net
 from lib.pyramid import process_multiscale
@@ -11,33 +12,43 @@ from lib.utils import preprocess_image
 use_cuda = torch.cuda.is_available()
 
 # Creating CNN model
-model = D2Net(model_file="models/d2.00.pth", use_cuda=use_cuda)
+# model = D2Net(model_file="models/d2.00.pth", use_cuda=use_cuda)
+model = D2Net(model_file="checkpoints/d2.18.pth", use_cuda=use_cuda)
 device = torch.device("cuda:0" if use_cuda else "cpu")
 
 multiscale = False
 max_edge = 2500
 max_sum_edges = 5000
+
+
+def resize_image_with_pil(image, scale_factor):
+    new_width = int(image.shape[1] * scale_factor)
+    new_height = int(image.shape[0] * scale_factor)
+    input_pil_image = Image.fromarray(image.astype("uint8"))
+    resized_image = input_pil_image.resize((new_width, new_height), Image.ANTIALIAS)
+    return np.array(resized_image).astype("float")
+
+
 # de-net feature extract function
 def cnn_feature_extract(image, scales=[0.25, 0.50, 1.0], nfeatures=1000):
-
     # repeat single channel image to 3 channel
     if len(image.shape) == 2:
         image = image[:, :, np.newaxis]
         image = np.repeat(image, 3, -1)
 
-    # TODO: switch to PIL.Image due to deprecation of scipy.misc.imresize.
-
     # Resize image to maximum size.
     resized_image = image
+
+    # 如果最大边大于max_edge，则调整大小
     if max(resized_image.shape) > max_edge:
-        resized_image = scipy.misc.imresize(
-            resized_image, max_edge / max(resized_image.shape)
-        ).astype("float")
-    # Resize image to maximum sum of sizes.
+        scale_factor = max_edge / max(resized_image.shape)
+        resized_image = resize_image_with_pil(resized_image, scale_factor)
+
+    # 如果尺寸之和大于max_sum_edges，则调整大小
     if sum(resized_image.shape[:2]) > max_sum_edges:
-        resized_image = scipy.misc.imresize(
-            resized_image, max_sum_edges / sum(resized_image.shape[:2])
-        ).astype("float")
+        scale_factor = max_sum_edges / sum(resized_image.shape[:2])
+        resized_image = resize_image_with_pil(resized_image, scale_factor)
+
     # resize proportion
     fact_i = image.shape[0] / resized_image.shape[0]
     fact_j = image.shape[1] / resized_image.shape[1]
