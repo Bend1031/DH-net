@@ -3,3 +3,6 @@ python train_mydata.py --use_validation --dataset_path "QXSLAB_SAROPT"
 
 # plot
 python train_mydata.py  --dataset_path "QXSLAB_SAROPT" --plot
+
+# train+valid
+python train_whu.py --use_validation --dataset_path "datasets/whu-opt-sar"

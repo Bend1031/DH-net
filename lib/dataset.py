@@ -375,7 +375,7 @@ class WhuDataset(Dataset):
         self,
         scene_list_path="datasets_utils/whu-opt-sar-utils/train.txt",
         # scene_info_path="/local/dataset/megadepth/scene_info",
-        subfolder_opt="optical_png/",
+        subfolder_opt="opt_png/",
         subfolder_sar="sar_png/",
         base_path="datasets/whu-opt-sar/",
         train=True,
@@ -398,6 +398,20 @@ class WhuDataset(Dataset):
 
         self.dataset = []
 
+    def generate_uniform_coordinates(self, height, width, grid_size=(10, 10)):
+        # height, width = image.shape[:2]
+        x_step = width // grid_size[1]
+        y_step = height // grid_size[0]
+
+        coordinates = []
+        for i in range(grid_size[0]):
+            for j in range(grid_size[1]):
+                x = j * x_step + x_step // 2
+                y = i * y_step + y_step // 2
+                coordinates.append((x, y, x, y))
+
+        return np.array(coordinates)
+
     def build_dataset(self):
         self.dataset = []
 
@@ -412,17 +426,34 @@ class WhuDataset(Dataset):
             image_path1 = os.path.join(self.base_path, self.subfolder_opt, scene)
             image_path2 = os.path.join(self.base_path, self.subfolder_sar, scene)
 
-            self.dataset.append(
-                {
-                    "image_path1": image_path1,
-                    "image_path2": image_path2,
-                }
-            )
+            image = Image.open(image_path1)
+            if image.mode != "RGB":
+                image = image.convert("RGB")
+                # image = np.array(image)
+
+            # numpy shape
+
+            height, width = image.size
+
+            central_match = self.generate_uniform_coordinates(height, width)
+            for pair in central_match:
+                self.dataset.append(
+                    {
+                        "image_path1": image_path1,
+                        "image_path2": image_path2,
+                        "central_match": pair,
+                    }
+                )
+
         np.random.shuffle(self.dataset)
         if not self.train:
             np.random.set_state(np_random_state)
 
+    def __len__(self):
+        return len(self.dataset)
+
     def recover_pair(self, pair_metadata):
+        # load image to numpy array
         image1 = Image.open(pair_metadata["image_path1"])
         if image1.mode != "RGB":
             image1 = image1.convert("RGB")
@@ -433,10 +464,11 @@ class WhuDataset(Dataset):
             image2 = image2.convert("RGB")
         image2 = np.array(image2)
 
-        return image1, image2
+        central_match = pair_metadata["central_match"]
 
-    def __len__(self):
-        return len(self.dataset)
+        image1, bbox1, image2, bbox2 = self.crop(image1, image2, central_match)
+
+        return image1, bbox1, image2, bbox2
 
     def init_my_params(self):
         self.depth1 = np.ones((self.image_size, self.image_size))
@@ -445,72 +477,75 @@ class WhuDataset(Dataset):
         # pose=[4,4]
         # self.pose1 = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
         self.pose1 = np.identity(4)
-        self.bbox1 = np.array([0, 0])
+        # self.bbox1 = np.array([0, 0])
 
         self.depth2 = self.depth1
         self.intrinsics2 = self.intrinsics1
         self.pose2 = self.pose1
-        self.bbox2 = self.bbox1
+        # self.bbox2 = self.bbox1
         return (
             self.depth1,
             self.intrinsics1,
             self.pose1,
-            self.bbox1,
+            # self.bbox1,
             self.depth2,
             self.intrinsics2,
             self.pose2,
-            self.bbox2,
+            # self.bbox2,
         )
 
-    def crop(self, image1, image2, central_match):
-        bbox1_i = max(int(central_match[0]) - self.image_size // 2, 0)
-        if bbox1_i + self.image_size >= image1.shape[0]:
-            bbox1_i = image1.shape[0] - self.image_size
-        bbox1_j = max(int(central_match[1]) - self.image_size // 2, 0)
-        if bbox1_j + self.image_size >= image1.shape[1]:
-            bbox1_j = image1.shape[1] - self.image_size
+    def crop(self, image1, image2, central_match, overlap_ratio=0.5):
+        half_crop_size = self.image_size // 2
+        overlap_size = int(half_crop_size * overlap_ratio)
 
-        bbox2_i = max(int(central_match[2]) - self.image_size // 2, 0)
-        if bbox2_i + self.image_size >= image2.shape[0]:
-            bbox2_i = image2.shape[0] - self.image_size
-        bbox2_j = max(int(central_match[3]) - self.image_size // 2, 0)
-        if bbox2_j + self.image_size >= image2.shape[1]:
-            bbox2_j = image2.shape[1] - self.image_size
+        # 生成随机偏移
+        offset_range = half_crop_size - overlap_size
+        i_offset = np.random.randint(-offset_range, offset_range + 1)
+        j_offset = np.random.randint(-offset_range, offset_range + 1)
+
+        # 计算新的中心点
+        center1 = np.array([central_match[0] + i_offset, central_match[1] + j_offset])
+        center2 = np.array([central_match[2] + i_offset, central_match[3] + j_offset])
+
+        # 计算裁剪窗口的左上角坐标
+        bbox1_i, bbox1_j = center1 - half_crop_size
+        bbox2_i, bbox2_j = center2 - half_crop_size
+
+        # 裁剪图像
+        cropped_image1 = image1[
+            bbox1_i : bbox1_i + self.image_size, bbox1_j : bbox1_j + self.image_size
+        ]
+        cropped_image2 = image2[
+            bbox2_i : bbox2_i + self.image_size, bbox2_j : bbox2_j + self.image_size
+        ]
 
         return (
-            image1[
-                bbox1_i : bbox1_i + self.image_size, bbox1_j : bbox1_j + self.image_size
-            ],
+            cropped_image1,
             np.array([bbox1_i, bbox1_j]),
-            image2[
-                bbox2_i : bbox2_i + self.image_size, bbox2_j : bbox2_j + self.image_size
-            ],
+            cropped_image2,
             np.array([bbox2_i, bbox2_j]),
         )
 
     def __getitem__(self, idx):
         (
             image1,
+            bbox1,
             image2,
+            bbox2,
         ) = self.recover_pair(self.dataset[idx])
 
         image1 = preprocess_image(image1, preprocessing=self.preprocessing)
         image2 = preprocess_image(image2, preprocessing=self.preprocessing)
 
-        # return {
-        #     "image1": torch.from_numpy(image1.astype(np.float32)),
-        #     "image2": torch.from_numpy(image2.astype(np.float32)),
-        # }
         (
             depth1,
             intrinsics1,
             pose1,
-            bbox1,
             depth2,
             intrinsics2,
             pose2,
-            bbox2,
         ) = self.init_my_params()
+
         return {
             "image1": torch.from_numpy(image1.astype(np.float32)),
             "depth1": torch.from_numpy(depth1.astype(np.float32)),
