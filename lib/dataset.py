@@ -495,23 +495,26 @@ class WhuDataset(Dataset):
         )
 
     def crop(self, image1, image2, central_match, overlap_ratio=0.5):
+        height, width = image1.shape[:2]
         half_crop_size = self.image_size // 2
         overlap_size = int(half_crop_size * overlap_ratio)
 
-        # 生成随机偏移
         offset_range = half_crop_size - overlap_size
-        i_offset = np.random.randint(-offset_range, offset_range + 1)
-        j_offset = np.random.randint(-offset_range, offset_range + 1)
+        i_offset1 = np.random.randint(-offset_range, offset_range + 1)
+        j_offset1 = np.random.randint(-offset_range, offset_range + 1)
+        i_offset2 = np.random.randint(-offset_range, offset_range + 1)
+        j_offset2 = np.random.randint(-offset_range, offset_range + 1)
 
-        # 计算新的中心点
-        center1 = np.array([central_match[0] + i_offset, central_match[1] + j_offset])
-        center2 = np.array([central_match[2] + i_offset, central_match[3] + j_offset])
+        center1 = np.array([central_match[0] + i_offset1, central_match[1] + j_offset1])
+        center2 = np.array([central_match[2] + i_offset2, central_match[3] + j_offset2])
 
-        # 计算裁剪窗口的左上角坐标
-        bbox1_i, bbox1_j = center1 - half_crop_size
-        bbox2_i, bbox2_j = center2 - half_crop_size
+        # 计算裁剪窗口的左上角坐标，并进行边界检查
+        bbox1_i = max(min(center1[0] - half_crop_size, height - self.image_size), 0)
+        bbox1_j = max(min(center1[1] - half_crop_size, width - self.image_size), 0)
 
-        # 裁剪图像
+        bbox2_i = max(min(center2[0] - half_crop_size, height - self.image_size), 0)
+        bbox2_j = max(min(center2[1] - half_crop_size, width - self.image_size), 0)
+
         cropped_image1 = image1[
             bbox1_i : bbox1_i + self.image_size, bbox1_j : bbox1_j + self.image_size
         ]
