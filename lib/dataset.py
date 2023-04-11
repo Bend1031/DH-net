@@ -561,3 +561,131 @@ class WhuDataset(Dataset):
             "pose2": torch.from_numpy(pose2.astype(np.float32)),
             "bbox2": torch.from_numpy(bbox2.astype(np.float32)),
         }
+
+
+class WhuDatasetCrop(Dataset):
+    def __init__(
+        self,
+        scene_list_path="datasets_utils/whu-opt-sar-utils/train.txt",
+        # scene_info_path="/local/dataset/megadepth/scene_info",
+        subfolder_opt="crop/optical/",
+        subfolder_sar="crop/sar/",
+        base_path="datasets/whu-opt-sar/",
+        train=True,
+        preprocessing=None,
+        # pairs_per_scene=100,
+        image_size=256,
+    ):
+        self.scenes = []
+        with open(scene_list_path, "r") as f:
+            lines = f.readlines()
+            for line in lines:
+                self.scenes.append(line.strip("\n") + ".tif")
+        self.base_path = base_path
+        self.train = train
+        self.preprocessing = preprocessing
+        # self.pairs_per_scene = pairs_per_scene
+        self.subfolder_opt = subfolder_opt
+        self.subfolder_sar = subfolder_sar
+        self.image_size = image_size
+
+        self.dataset = []
+
+    def build_dataset(self):
+        self.dataset = []
+
+        if not self.train:
+            np_random_state = np.random.get_state()
+            np.random.seed(42)
+            print("Building the validation dataset...")
+        else:
+            print("Building a new training dataset...")
+
+        for scene in tqdm(self.scenes, total=len(self.scenes)):
+            image_path1 = os.path.join(self.base_path, self.subfolder_opt, scene)
+            image_path2 = os.path.join(self.base_path, self.subfolder_sar, scene)
+
+            self.dataset.append(
+                {
+                    "image_path1": image_path1,
+                    "image_path2": image_path2,
+                }
+            )
+
+        np.random.shuffle(self.dataset)
+        if not self.train:
+            np.random.set_state(np_random_state)
+
+    def __len__(self):
+        return len(self.dataset)
+
+    def recover_pair(self, pair_metadata):
+        # load image to numpy array
+        image1 = Image.open(pair_metadata["image_path1"])
+        if image1.mode != "RGB":
+            image1 = image1.convert("RGB")
+        image1 = np.array(image1)
+
+        image2 = Image.open(pair_metadata["image_path2"])
+        if image2.mode != "RGB":
+            image2 = image2.convert("RGB")
+        image2 = np.array(image2)
+
+        return image1, image2
+
+    def init_my_params(self):
+        self.depth1 = np.ones((self.image_size, self.image_size))
+        # self.intrinsics1 = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]])
+        self.intrinsics1 = np.identity(3)
+        # pose=[4,4]
+        # self.pose1 = np.array([[1, 0, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 0, 0, 1]])
+        self.pose1 = np.identity(4)
+        self.bbox1 = np.array([0, 0])
+
+        self.depth2 = self.depth1
+        self.intrinsics2 = self.intrinsics1
+        self.pose2 = self.pose1
+        self.bbox2 = self.bbox1
+        return (
+            self.depth1,
+            self.intrinsics1,
+            self.pose1,
+            self.bbox1,
+            self.depth2,
+            self.intrinsics2,
+            self.pose2,
+            self.bbox2,
+        )
+
+    def __getitem__(self, idx):
+        (
+            image1,
+            image2,
+        ) = self.recover_pair(self.dataset[idx])
+
+        image1 = preprocess_image(image1, preprocessing=self.preprocessing)
+        image2 = preprocess_image(image2, preprocessing=self.preprocessing)
+
+        (
+            depth1,
+            intrinsics1,
+            pose1,
+            bbox1,
+            depth2,
+            intrinsics2,
+            pose2,
+            bbox2,
+        ) = self.init_my_params()
+
+        return {
+            "image1": torch.from_numpy(image1.astype(np.float32)),
+            "depth1": torch.from_numpy(depth1.astype(np.float32)),
+            "intrinsics1": torch.from_numpy(intrinsics1.astype(np.float32)),
+            "pose1": torch.from_numpy(pose1.astype(np.float32)),
+            "bbox1": torch.from_numpy(bbox1.astype(np.float32)),
+            "image2": torch.from_numpy(image2.astype(np.float32)),
+            "depth2": torch.from_numpy(depth2.astype(np.float32)),
+            "intrinsics2": torch.from_numpy(intrinsics2.astype(np.float32)),
+            "pose2": torch.from_numpy(pose2.astype(np.float32)),
+            "bbox2": torch.from_numpy(bbox2.astype(np.float32)),
+        }
