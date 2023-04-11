@@ -49,13 +49,17 @@ def loss_function(
         scores2 = output["scores2"][idx_in_batch]
 
         all_descriptors1 = F.normalize(dense_features1.view(c, -1), dim=0)
-        descriptors1 = all_descriptors1
+        descriptors1 = all_descriptors1  # 512*1024
 
         all_descriptors2 = F.normalize(dense_features2.view(c, -1), dim=0)
 
         # Warp the positions from image 1 to image 2
-        fmap_pos1 = grid_positions(h1, w1, device)
-        pos1 = upscale_positions(fmap_pos1, scaling_steps=scaling_steps)
+        fmap_pos1 = grid_positions(
+            h1, w1, device
+        )  # 特征图的位置[2, h1*w1]: [[0,0,0,...,w1-1,w1-1,w1-1,...], [0,1,2,...,0,1,2,...]]
+        pos1 = upscale_positions(
+            fmap_pos1, scaling_steps=scaling_steps
+        )  # 原图的位置[2, h1*w1]
         try:
             pos1, pos2, ids = warp(
                 pos1,
@@ -90,12 +94,15 @@ def loss_function(
             - 2
             * (descriptors1.t().unsqueeze(1) @ descriptors2.t().unsqueeze(2)).squeeze()
         )
+        # n匹配的特征点的距离，[n]为n个匹配点的距离
+        # 余弦相似度转换为距离度量，这里使用 2 - 2 * 余弦相似度 的形式，将距离范围转换为0到2之间，0表示完全相似，2表示完全不相似
 
         all_fmap_pos2 = grid_positions(h2, w2, device)
         position_distance = torch.max(
             torch.abs(fmap_pos2.unsqueeze(2).float() - all_fmap_pos2.unsqueeze(1)),
             dim=0,
         )[0]
+
         is_out_of_safe_radius = position_distance > safe_radius
         distance_matrix = 2 - 2 * (descriptors1.t() @ all_descriptors2)
         negative_distance2 = torch.min(
@@ -117,9 +124,10 @@ def loss_function(
 
         scores2 = scores2[fmap_pos2[0, :], fmap_pos2[1, :]]
 
+        # loss = loss + (torch.sum(scores1 * scores2) * 1000)
         loss = loss + (
             torch.sum(scores1 * scores2 * F.relu(margin + diff))
-            / torch.sum(scores1 * scores2)
+            / (torch.sum(scores1 * scores2) + 1e-6)
         )
 
         has_grad = True
