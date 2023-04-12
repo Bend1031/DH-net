@@ -1,0 +1,3 @@
+dataset_path: datasets/QXSLAB_SAROPT
+checkpoint_directory: checkpoints/qxlab
+checkpoint_prefix: qxs

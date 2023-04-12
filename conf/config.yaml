@@ -1,0 +1,26 @@
+defaults:
+  - _self_
+  - dataset: whu
+
+model_file: models/d2_tf.pth
+
+train:
+  num_epochs: 10
+  lr: 0.01
+  batch_size: 1
+  num_workers: 0
+  use_validation: True
+
+log:
+  log_interval: 1000
+  log_file: log.txt
+
+plot: False
+preprocessing: torch
+
+hydra:
+  run:
+    dir: outputs/${hydra.job.name}/${dataset.checkpoint_prefix}/${now:%Y-%m-%d_%H-%M-%S}
+
+
+

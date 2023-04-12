@@ -1,0 +1,3 @@
+dataset_path: datasets/whu-opt-sar
+checkpoint_directory: checkpoints/whu_crop
+checkpoint_prefix: whu
