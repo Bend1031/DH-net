@@ -56,6 +56,10 @@ class QxslabSarOptDataset(Dataset):
     def recover_pair(self, pair_metadata):
         image1 = imageio.v3.imread(pair_metadata["image_path1"])
         image2 = imageio.v3.imread(pair_metadata["image_path2"])
+        # asarray
+        image1 = np.array(image1)
+        image2 = np.array(image2)
+        # image1
         return image1, image2
 
     def __len__(self):
@@ -192,7 +196,7 @@ def cnn_feature_extract(image, model, device, scales=[0.25, 0.50, 1.0], nfeature
 
 
 def main():
-    data_path = "datasets_utils/qxslab_utils/valid.txt"
+    data_path = "datasets_utils/qxslab_utils/test/valid.txt"
     model_path = "models/d2.00.pth"
     # model_path = "models/d2_tf.pth"
 
