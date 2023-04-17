@@ -9,7 +9,7 @@ from lib.exceptions import EmptyTensorError
 
 def preprocess_image(image, preprocessing=None):
     image = image.astype(np.float32)
-    image = np.transpose(image, [2, 0, 1])
+    image = np.transpose(image, [2, 0, 1])#[c, h, w]
     if preprocessing is None:
         pass
     elif preprocessing == "caffe":

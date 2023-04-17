@@ -10,19 +10,17 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from config import Config
+from lib.config import Config
 from lib.dataset import WhuDatasetCrop
 from lib.exceptions import NoGradientError
 from lib.loss import loss_function
 from lib.model import D2Net
 
-# from lib.utils import parse_args
-
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
-def main(args: Config):
+def main(cfg: Config):
     # %%init cuda and seed
-    print(OmegaConf.to_yaml(args))
+    print(OmegaConf.to_yaml(cfg))
 
     # CUDA
     writer_train_loss = SummaryWriter("./runs/whu_crop/train_loss")
@@ -36,69 +34,60 @@ def main(args: Config):
     if use_cuda:
         torch.cuda.manual_seed(1)
     np.random.seed(1)
-    torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.benchmark = True  # type: ignore
 
-    # args = parse_args()
-    # print(args)
+    # cfg = parse_cfg()
+    # print(cfg)
 
     # %% Create the folders
     # Create the folders for plotting if need be
-    if args.plot:
+    if cfg.plot:
         plot_path = "train_vis"
-        if os.path.isdir(plot_path):
-            print("[Warning] Plotting directory already exists.")
-        else:
-            os.mkdir(plot_path)
-    # Create the checkpoint directory
-    if os.path.isdir(args.dataset.checkpoint_directory):
-        # print("Checkpoint directory already exists.")
-        pass
-    else:
-        os.mkdir(args.dataset.checkpoint_directory)
-        print("Checkpoint directory created")
+        os.makedirs(plot_path, exist_ok=True)
+    os.makedirs(cfg.dataset.checkpoint_directory, exist_ok=True)
+    print("Checkpoint directory created")
 
-    # Open the log file for writing
-    if os.path.exists(args.log.log_file):
+    if os.path.exists(cfg.log.log_file):
         print("Log is opening.")
-    log_file = open(args.log.log_file, "a+")
+    log_file = open(cfg.log.log_file, "a+")
 
     # %% load valid and train Dataset
-    if args.train.use_validation:
+    validation_dataloader = None
+    if cfg.train.use_validation:
         validation_dataset = WhuDatasetCrop(
             scene_list_path="datasets_utils/whu-opt-sar-utils/valid.txt",
-            base_path=args.dataset.dataset_path,
+            base_path=cfg.dataset.dataset_path,
             train=False,
-            preprocessing=args.preprocessing,
+            preprocessing=cfg.preprocessing,
         )
         validation_dataloader = DataLoader(
             validation_dataset,
-            batch_size=args.train.batch_size,
-            num_workers=args.train.num_workers,
+            batch_size=cfg.train.batch_size,
+            num_workers=cfg.train.num_workers,
         )
         validation_dataset.build_dataset()
 
     training_dataset = WhuDatasetCrop(
         scene_list_path="datasets_utils/whu-opt-sar-utils/train.txt",
-        preprocessing=args.preprocessing,
+        preprocessing=cfg.preprocessing,
         train=True,
     )
 
     training_dataloader = DataLoader(
         training_dataset,
-        batch_size=args.train.batch_size,
-        num_workers=args.train.num_workers,
+        batch_size=cfg.train.batch_size,
+        num_workers=cfg.train.num_workers,
     )
     # %% Creating CNN model and optimizer
-    model = D2Net(model_file=args.model_file, use_cuda=use_cuda)
-
+    model = D2Net(model_file=cfg.model_file, use_cuda=use_cuda)
     # Optimizer
     optimizer = optim.Adam(
-        filter(lambda p: p.requires_grad, model.parameters()), lr=args.train.lr
+        filter(lambda p: p.requires_grad, model.parameters()), lr=cfg.train.lr
     )
 
     # %% Resume training if needed
     # checkpoint 不存在，从头开始训练
-    checkpoints = os.listdir(args.dataset.checkpoint_directory)
+    checkpoints = os.listdir(cfg.dataset.checkpoint_directory)
     if not checkpoints:
         start_epoch = 1
         train_loss_history = []
@@ -109,12 +98,12 @@ def main(args: Config):
         checkpoints = [
             x
             for x in checkpoints
-            if not x.startswith(args.dataset.checkpoint_prefix + ".best")
+            if not x.startswith(cfg.dataset.checkpoint_prefix + ".best")
         ]
 
         latest_checkpoint = max(checkpoints, key=lambda x: int(x.split(".")[-2]))  # type: ignore
         latest_checkpoint_path = os.path.join(
-            args.dataset.checkpoint_directory, latest_checkpoint
+            cfg.dataset.checkpoint_directory, latest_checkpoint
         )
         checkpoint = torch.load(latest_checkpoint_path)
 
@@ -131,146 +120,121 @@ def main(args: Config):
 
     # Define epoch function
     def process_epoch(
-        epoch_idx,
-        model,
-        loss_function,
-        optimizer,
-        dataloader,
-        device,
-        log_file,
-        args,
-        train=True,
+        epoch, model, loss_fn, optimizer, dataloader, device, log_file, is_train=True
     ):
+        mode = "train" if is_train else "valid"
         epoch_losses = []
 
-        torch.set_grad_enabled(train)
-        if train:
-            print("Training epoch %d" % epoch_idx)
-        else:
-            print("Validating epoch %d" % epoch_idx)
+        torch.set_grad_enabled(is_train)
+        print(f"{mode.capitalize()}ing epoch {epoch}")
         progress_bar = tqdm(enumerate(dataloader), total=len(dataloader))
         for batch_idx, batch in progress_bar:
-            if train:
+            if is_train:
                 # Forward pass
                 optimizer.zero_grad()
 
-            batch["train"] = train
-            batch["epoch_idx"] = epoch_idx
+            batch["train"] = is_train
+            batch["epoch_idx"] = epoch
             batch["batch_idx"] = batch_idx
-            batch["batch_size"] = args.train.batch_size
-            batch["preprocessing"] = args.preprocessing
-            batch["log_interval"] = args.log.log_interval
+            batch["batch_size"] = cfg.train.batch_size
+            batch["preprocessing"] = cfg.preprocessing
+            batch["log_interval"] = cfg.log.log_interval
 
             try:
-                loss = loss_function(model, batch, device, plot=args.plot)
+                loss = loss_fn(model, batch, device, plot=cfg.plot)
             except NoGradientError:
                 continue
 
             current_loss = loss.data.cpu().numpy()[0]
             epoch_losses.append(current_loss)
 
-            progress_bar.set_postfix(loss=("%.4f" % np.mean(epoch_losses)))
+            progress_bar.set_postfix(loss=f"{np.mean(epoch_losses):.4f}")
 
-            if batch_idx % args.log.log_interval == 0:
+            if batch_idx % cfg.log.log_interval == 0:
                 log_file.write(
-                    "[%s] epoch %d - batch %d / %d - avg_loss: %f\n"
-                    % (
-                        "train" if train else "valid",
-                        epoch_idx,
-                        batch_idx,
-                        len(dataloader),
-                        np.mean(epoch_losses),
-                    )
+                    f"[{mode}] epoch {epoch} - batch {batch_idx} / {len(dataloader)} - avg_loss: {np.mean(epoch_losses):.4f}\n"
                 )
 
-            if train:
+            if is_train:
                 loss.backward()
-                torch.nn.utils.clip_grad_norm_(model.parameters(), 20)  # 在代码中加入这行实现梯度裁剪
+                # torch.nn.utils.clip_grad_norm_(model.parameters(), 20)  # 在代码中加入这行实现梯度裁剪
                 optimizer.step()
-        if train:
-            writer_train_loss.add_scalar("Loss", np.mean(epoch_losses), epoch_idx)
-        else:
-            writer_valid_loss.add_scalar("Loss", np.mean(epoch_losses), epoch_idx)
+
+        writer_train_loss.add_scalar(
+            "Loss", np.mean(epoch_losses), epoch
+        ) if is_train else writer_valid_loss.add_scalar(
+            "Loss", np.mean(epoch_losses), epoch
+        )
 
         log_file.write(
-            "[%s] epoch %d - avg_loss: %f\n"
-            % ("train" if train else "valid", epoch_idx, np.mean(epoch_losses))
+            f"[{mode}] epoch {epoch} - avg_loss: {np.mean(epoch_losses):.4f}\n"
         )
         log_file.flush()
 
         return np.mean(epoch_losses)
 
-    # %%train
-    for epoch_idx in range(start_epoch, start_epoch + args.train.num_epochs):
-        # Process epoch
+    # Train loop
+
+    train_loss_history = []
+    validation_loss_history = []
+    for epoch in range(start_epoch, start_epoch + cfg.train.num_epochs):
         training_dataset.build_dataset()
         train_loss_history.append(
             process_epoch(
-                epoch_idx,
+                epoch,
                 model,
                 loss_function,
                 optimizer,
                 training_dataloader,
                 device,
                 log_file,
-                args,
             )
         )
-
-        if args.use_validation:
+        if cfg.train.use_validation:
             validation_loss_history.append(
                 process_epoch(
-                    epoch_idx,
+                    epoch,
                     model,
                     loss_function,
                     optimizer,
                     validation_dataloader,
                     device,
                     log_file,
-                    args,
-                    train=False,
+                    is_train=False,
                 )
             )
-            # Save the current checkpoint
-        checkpoint_path = os.path.join(
-            args.dataset.checkpoint_directory,
-            "%s.%02d.pth" % (args.dataset.checkpoint_prefix, epoch_idx),
-        )
-        # 更新学习率,每3个epoch学习率减半
-        # if (epoch_idx) % 3 == 0:
-        #     for param_group in optimizer.param_groups:
-        #         param_group["lr"] *= 0.5
-        #         print("learning rate is updated to {}".format(param_group["lr"]))
 
+        # Save checkpoint
+        checkpoint_path = os.path.join(
+            cfg.dataset.checkpoint_directory,
+            f"{cfg.dataset.checkpoint_prefix}.{epoch:02d}.pth",
+        )
         checkpoint = {
-            "args": args,
-            "epoch_idx": epoch_idx,
+            "args": cfg,
+            "epoch_idx": epoch,
             "model": model.state_dict(),
             "optimizer": optimizer.state_dict(),
             "train_loss_history": train_loss_history,
             "validation_loss_history": validation_loss_history,
-            "lr": optimizer.param_groups[0]["lr"]
-            # "min_validation_loss": min_validation_loss,
+            "lr": optimizer.param_groups[0]["lr"],
         }
         torch.save(checkpoint, checkpoint_path)
 
-        # Save the best checkpoint
-        if args.use_validation and (len(validation_loss_history) == 1):
+        # Save best checkpoint
+        if cfg.train.use_validation and (len(validation_loss_history) == 1):
             min_validation_loss = validation_loss_history[0]
 
-        if args.use_validation and (
+        if cfg.train.use_validation and (
             validation_loss_history[-1] == min(validation_loss_history)
         ):
             min_validation_loss = validation_loss_history[-1]
             best_checkpoint_path = os.path.join(
-                args.dataset.checkpoint_directory,
-                "%s.best.pth" % args.dataset.checkpoint_prefix,
+                cfg.dataset.checkpoint_directory,
+                f"{cfg.dataset.checkpoint_prefix}.best.pth",
             )
-
             shutil.copy(checkpoint_path, best_checkpoint_path)
-
-    # Close the log file
     log_file.close()
+    print("Done")
 
 
 if __name__ == "__main__":

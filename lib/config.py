@@ -1,3 +1,5 @@
+"""配置文件类型定义，以便类型检查
+"""
 from dataclasses import dataclass
 
 
@@ -28,6 +30,6 @@ class Config:
     dataset: Dataset
     model_file: str
     preprocessing: str
-    train: TrainConfig  # type: ignore
-    log: LogConfig  # type: ignore
+    train: TrainConfig
+    log: LogConfig
     plot: bool
