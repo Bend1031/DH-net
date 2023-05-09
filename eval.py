@@ -196,9 +196,9 @@ def cnn_feature_extract(image, model, device, scales=[0.25, 0.50, 1.0], nfeature
 
 
 def main():
-    data_path = "datasets_utils/qxslab_utils/test/valid.txt"
-    model_path = "models/d2.00.pth"
-    # model_path = "models/d2_tf.pth"
+    data_path = "datasets_utils/qxslab_utils/train/valid.txt"
+    model_path = "checkpoints/qxslab/qxs.18.pth"
+    # model_path = "models/d2_t f.pth"
 
     use_cuda = torch.cuda.is_available()
     model = D2Net(model_file=model_path, use_cuda=use_cuda)

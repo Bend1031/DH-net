@@ -1,5 +1,5 @@
 # train+valid
-python train_mydata.py --use_validation --dataset_path "QXSLAB_SAROPT"
+python train_mydata.py --use_validation --dataset_path "datasets/QXSLAB_SAROPT" --checkpoint_directory "checkpoints/qxslab" --checkpoint_prefix "qxs"
 
 # plot
 python train_mydata.py  --dataset_path "QXSLAB_SAROPT" --plot

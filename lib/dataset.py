@@ -246,7 +246,7 @@ class QxslabSarOptDataset(Dataset):
     def __init__(
         self,
         scene_list_path="qxslab_utils/train.txt",
-        base_path="QXSLAB_SAROPT/",
+        base_path="datasets/QXSLAB_SAROPT/",
         subfolder_opt="opt_256_oc_0.2/",
         subfolder_sar="sar_256_oc_0.2/",
         image_size=256,

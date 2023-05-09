@@ -1,0 +1,4 @@
+name: sp
+num_kpt: 4000
+resize: [-1] 
+det_th: 0.00001

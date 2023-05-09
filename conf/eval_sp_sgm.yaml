@@ -1,0 +1,8 @@
+defaults:
+  - _self_
+  - extractor: sp
+  - matcher: sgm
+  - ransac: ransac
+
+# - matcher:
+#   use_score_encoding: False

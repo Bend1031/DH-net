@@ -26,6 +26,37 @@ class Dataset:
 
 
 @dataclass
+class ExtractorConfig:
+    name: str
+    num_kpt: int
+    resize: list
+    det_th: float
+
+
+@dataclass
+class MatcherConfig:
+    name: str
+    model_dir: str
+    seed_top_k: list
+    seed_radius_coe: float
+    net_channels: int
+    layer_num: int
+    head: int
+    seedlayer: list
+    use_mc_seeding: bool
+    use_score_encoding: bool
+    conf_bar: list
+    sink_iter: list
+    detach_iter: int
+    p_th: float
+
+
+@dataclass
+class RansacConfig:
+    name: str
+
+
+@dataclass
 class Config:
     dataset: Dataset
     model_file: str
@@ -33,3 +64,7 @@ class Config:
     train: TrainConfig
     log: LogConfig
     plot: bool
+
+    extractor: ExtractorConfig
+    matcher: MatcherConfig
+    ransac: RansacConfig

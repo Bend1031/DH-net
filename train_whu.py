@@ -130,6 +130,7 @@ def process_epoch(
         print("Training epoch %d" % epoch_idx)
     else:
         print("Validating epoch %d" % epoch_idx)
+        
     progress_bar = tqdm(enumerate(dataloader), total=len(dataloader))
     for batch_idx, batch in progress_bar:
         if train:
@@ -213,6 +214,7 @@ for epoch_idx in range(start_epoch, start_epoch + args.num_epochs):
                 train=False,
             )
         )
+        
         # Save the current checkpoint
     checkpoint_path = os.path.join(
         args.checkpoint_directory,
@@ -252,3 +254,5 @@ for epoch_idx in range(start_epoch, start_epoch + args.num_epochs):
 
 # Close the log file
 log_file.close()
+
+

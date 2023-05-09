@@ -13,9 +13,9 @@ from lib.cnn_feature import cnn_feature_extract
 start = time.perf_counter()
 
 _RESIDUAL_THRESHOLD = 30
-#%% load image
-imgfile1 = "QXSLAB_SAROPT/opt_256_oc_0.2/10.png"
-imgfile2 = "QXSLAB_SAROPT/sar_256_oc_0.2/10.png"
+# %% load image
+imgfile1 = "demo_1.jpg"
+imgfile2 = "demo_2.jpg"
 
 start = time.perf_counter()
 
@@ -43,7 +43,7 @@ print(
 
 start = time.perf_counter()
 
-#%% Flann特征匹配
+# %% Flann特征匹配
 # 优点：批量特征匹配时，FLANN速度快；
 # 缺点：由于使用的是邻近近似值，所以精度较差
 # Index_params字典：匹配算法KDTREE,LSH;
@@ -86,13 +86,16 @@ print("match num is %d" % len(goodMatch))
 locations_1_to_use = np.array(locations_1_to_use)
 locations_2_to_use = np.array(locations_2_to_use)
 
-#%% Perform geometric verification using RANSAC.
-_, inliers = measure.ransac(
+# %% Perform geometric verification using RANSAC.
+ransac_model, inliers = measure.ransac(
     (locations_1_to_use, locations_2_to_use),
     transform.AffineTransform,
-    min_samples=3,
+    min_samples=4,
     residual_threshold=_RESIDUAL_THRESHOLD,
     max_trials=1000,
+)
+Fm, inliers = cv2.findFundamentalMat(
+    locations_1_to_use, locations_2_to_use, cv2.USAC_MAGSAC, 0.5, 0.999, 100000
 )
 
 print("Found %d inliers" % sum(inliers))
@@ -122,4 +125,15 @@ plotmatch.plot_matches(
 )
 ax.axis("off")
 ax.set_title("")
+plt.show()
+
+image3 = transform.warp(image1, ransac_model.params)
+# 2 绘制拼接图
+plt.rcParams["savefig.dpi"] = 300  # 图片像素
+plt.rcParams["figure.dpi"] = 300  # 分辨率
+plt.rcParams["figure.figsize"] = (4.0, 3.0)  # 设置figure _size尺寸
+plt.subplot(1, 2, 1)
+plt.imshow(image1)
+plt.subplot(1, 2, 2)
+plt.imshow(image3)
 plt.show()

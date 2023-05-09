@@ -12,8 +12,8 @@ from lib.utils import preprocess_image
 use_cuda = torch.cuda.is_available()
 
 # Creating CNN model
-# model = D2Net(model_file="models/d2.00.pth", use_cuda=use_cuda)
-model = D2Net(model_file="checkpoints/d2.18.pth", use_cuda=use_cuda)
+model = D2Net(model_file="models/d2_tf.pth", use_cuda=use_cuda)
+# model = D2Net(model_file="checkpoints/qxslab/qxs.18.pth", use_cuda=use_cuda)
 device = torch.device("cuda:0" if use_cuda else "cpu")
 
 multiscale = False

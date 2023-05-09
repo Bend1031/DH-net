@@ -13,9 +13,6 @@ from lib.utils import (
     upscale_positions,
 )
 
-matplotlib.use("Agg")
-
-
 def loss_function(
     model, batch, device, margin=1, safe_radius=4, scaling_steps=3, plot=False
 ):

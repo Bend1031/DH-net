@@ -77,6 +77,7 @@ def main(cfg: Config):
         training_dataset,
         batch_size=cfg.train.batch_size,
         num_workers=cfg.train.num_workers,
+        pin_memory=True,
     )
     # %% Creating CNN model and optimizer
     model = D2Net(model_file=cfg.model_file, use_cuda=use_cuda)

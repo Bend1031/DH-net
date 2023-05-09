@@ -14,7 +14,7 @@ from lib.loss import loss_function, loss_function_qxs
 from lib.model import D2Net
 from lib.utils import parse_args
 
-#%%init cuda and seed
+# %%init cuda and seed
 # CUDA
 writer_train_loss = SummaryWriter("./runs/train_loss")
 writer_valid_loss = SummaryWriter("./runs/valid_loss")
@@ -30,7 +30,7 @@ np.random.seed(1)
 
 args = parse_args()
 print(args)
-#%% Create the folders
+# %% Create the folders
 # Create the folders for plotting if need be
 if args.plot:
     plot_path = "train_vis"
@@ -51,10 +51,10 @@ if os.path.exists(args.log_file):
     print("Log is opening.")
 log_file = open(args.log_file, "a+")
 
-#%% load valid and train Dataset
+# %% load valid and train Dataset
 if args.use_validation:
     validation_dataset = QxslabSarOptDataset(
-        scene_list_path="qxslab_utils/valid.txt",
+        scene_list_path="datasets_utils/qxslab_utils/valid.txt",
         base_path=args.dataset_path,
         train=False,
         preprocessing=args.preprocessing,
@@ -65,7 +65,7 @@ if args.use_validation:
     validation_dataset.build_dataset()
 
 training_dataset = QxslabSarOptDataset(
-    scene_list_path="qxslab_utils/train.txt",
+    scene_list_path="datasets_utils/qxslab_utils/train.txt",
     preprocessing=args.preprocessing,
     train=True,
 )
@@ -73,7 +73,7 @@ training_dataset = QxslabSarOptDataset(
 training_dataloader = DataLoader(
     training_dataset, batch_size=args.batch_size, num_workers=args.num_workers
 )
-#%% Creating CNN model and optimizer
+# %% Creating CNN model and optimizer
 model = D2Net(model_file=args.model_file, use_cuda=use_cuda)
 
 # Optimizer
@@ -81,7 +81,7 @@ optimizer = optim.Adam(
     filter(lambda p: p.requires_grad, model.parameters()), lr=args.lr
 )
 
-#%% Resume training if needed
+# %% Resume training if needed
 # checkpoint 不存在，从头开始训练
 checkpoints = os.listdir(args.checkpoint_directory)
 if not checkpoints:
@@ -182,7 +182,7 @@ def process_epoch(
     return np.mean(epoch_losses)
 
 
-#%%train
+# %%train
 for epoch_idx in range(start_epoch, start_epoch + args.num_epochs):
     # Process epoch
     training_dataset.build_dataset()
@@ -200,7 +200,6 @@ for epoch_idx in range(start_epoch, start_epoch + args.num_epochs):
     )
 
     if args.use_validation:
-
         validation_loss_history.append(
             process_epoch(
                 epoch_idx,
