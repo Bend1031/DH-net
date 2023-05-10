@@ -1,11 +1,12 @@
 defaults:
-  - _self_
-  - extractor: sp
+  - extractor: d2
   - matcher: sgm
   - ransac: magsacpp
+  - _self_
 
-# - matcher:
-#   use_score_encoding: False
+matcher:
+  model_dir: weights/sgm/sp
+
 hydra:
   run:
     dir: outputs/${extractor.name}/${matcher.name}/${ransac.name}

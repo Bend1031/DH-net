@@ -1,1 +1,4 @@
 name: ransac
+threshold: 3
+max_iters: 10000
+confidence: 0.999

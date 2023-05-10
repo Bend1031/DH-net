@@ -47,3 +47,32 @@ def flann(kps_left, des_left, kps_right, des_right):
     locations_1_to_use = np.array(locations_1_to_use)
     locations_2_to_use = np.array(locations_2_to_use)
     return locations_1_to_use, locations_2_to_use
+
+
+def img_align(img1, img2, H):
+    """
+    img_align - Function to align two images using homography matrix H
+
+    Parameters:
+    img1 (numpy.ndarray): Input image 1
+    img2 (numpy.ndarray): Input image 2
+    H (numpy.ndarray): Homography matrix to align img1 with img2
+
+    Returns:
+    None
+
+    Algorithm:
+    1. Extract height and width of img2
+    2. Use cv2.warpPerspective to warp img1 using H to match the perspective of img2
+    3. Combine the two images horizontally using cv2.hconcat
+    4. Display the aligned images using cv2.imshow and wait for user input
+
+    """
+
+    h, w = img2.shape[:2]
+    img1_warped = cv2.warpPerspective(img1, H, (w, h))
+
+    # Display the aligned images
+    aligned_image = cv2.hconcat([img1_warped, img2])
+    cv2.imshow("Aligned Images", aligned_image)
+    cv2.waitKey(0)

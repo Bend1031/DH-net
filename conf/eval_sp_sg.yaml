@@ -4,3 +4,7 @@ defaults:
   - matcher: sg
   - ransac: magsacpp
 
+hydra:
+  run:
+    dir: outputs/${extractor.name}/${matcher.name}/${ransac.name}
+

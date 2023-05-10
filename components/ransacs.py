@@ -12,73 +12,64 @@ import pydegensac
 
 class RANSAC:
     def __init__(self, config):
-        # self.model_class = config.model_class
-        # self.min_samples = config.min_samples
-        # self.residual_threshold = config.residual_threshold
-        # self.max_trials = config.max_trials
-        pass
+        self.threshold = config.threshold
+        self.max_iters = config.max_iters
+        self.confidence = config.confidence
 
     def run(self, corr1, corr2):
-        Fm, inliers = cv2.findFundamentalMat(
-            corr1, corr2, cv2.RANSAC, 3.0, 0.999, 10000
+        H, inliers = cv2.findHomography(
+            srcPoints=corr1,
+            dstPoints=corr2,
+            method=cv2.RANSAC,
+            ransacReprojThreshold=self,
+            confidence=self.confidence,
+            maxIters=self.max_iters,
         )
         inlier_idxs = np.nonzero(inliers)[0]
         # print(inlier_idxs)
         corr1 = corr1[inlier_idxs]
         corr2 = corr2[inlier_idxs]
-        return corr1, corr2
-        # ransac_model, inliers = measure.ransac(
-        #     data=(corr1, corr2),
-        #     model_class=transform.AffineTransform,
-        #     min_samples=4,
-        #     residual_threshold=30,
-        #     max_trials=1000,
-        # )
-        # inlier_idxs = np.nonzero(inliers)[0]
-        # # print(inlier_idxs)
-        # corr1 = corr1[inlier_idxs]
-        # corr2 = corr2[inlier_idxs]
-        # return corr1, corr2
+        return H, corr1, corr2
 
 
 class Degensac:
+    def __init__(self, config):
+        self.threshold = config.threshold
+        self.max_iters = config.max_iters
+        self.confidence = config.confidence
+
     def run(self, corr1, corr2):
-        model, inliers = pydegensac.findHomography(corr1, corr2, 4.0, 0.999, 1000)
+        H, inliers = pydegensac.findHomography(
+            pts1_=corr1,
+            pts2_=corr2,
+            px_th=self.threshold,
+            conf=self.confidence,
+            max_iters=self.max_iters,
+        )
         inlier_idxs = np.nonzero(inliers)[0]
         # print(inlier_idxs)
         corr1 = corr1[inlier_idxs]
         corr2 = corr2[inlier_idxs]
-        return corr1, corr2
-
-
-class Magsac:
-    def run(self, corr1, corr2):
-        ransac_result = pydegensac.ransac(
-            data=(corr1, corr2),
-            model_class=transform.AffineTransform,
-            method="magsac",
-            max_trials=1000,
-            threshold=0.01,
-            verbose=False,
-        )
-        inlier_idxs = ransac_result.inliers
-        # inlier_idxs = np.nonzero(inliers)[0]
-        # print(inlier_idxs)
-        corr1 = corr1[inlier_idxs]
-        corr2 = corr2[inlier_idxs]
-        return corr1, corr2
+        return H, corr1, corr2
 
 
 class Magsacpp:
     def __init__(self, config):
-        pass
+        self.threshold = config.threshold
+        self.max_iters = config.max_iters
+        self.confidence = config.confidence
 
     def run(self, corr1, corr2):
-        Fm, inliers = cv2.findFundamentalMat(
-            corr1, corr2, cv2.USAC_MAGSAC, 1.0, 0.99, 1000
+        H, inliers = cv2.findHomography(
+            srcPoints=corr1,
+            dstPoints=corr2,
+            method=cv2.USAC_MAGSAC,
+            ransacReprojThreshold=self.threshold,
+            confidence=self.confidence,
+            maxIters=self.max_iters,
         )
         inlier_idxs = np.nonzero(inliers)[0]
         # print(inlier_idxs)
         corr1 = corr1[inlier_idxs]
         corr2 = corr2[inlier_idxs]
-        return corr1, corr2
+        return H, corr1, corr2

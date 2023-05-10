@@ -36,9 +36,11 @@ class GNN_Matcher(object):
         norm_x1, norm_x2 = evaluation_utils.normalize_size(
             test_data["x1"][:, :2], test_data["size1"]
         ), evaluation_utils.normalize_size(test_data["x2"][:, :2], test_data["size2"])
+
         x1, x2 = np.concatenate(
             [norm_x1, test_data["x1"][:, 2, np.newaxis]], axis=-1
         ), np.concatenate([norm_x2, test_data["x2"][:, 2, np.newaxis]], axis=-1)
+
         feed_data = {
             "x1": torch.from_numpy(x1[np.newaxis]).cuda().float(),
             "x2": torch.from_numpy(x2[np.newaxis]).cuda().float(),

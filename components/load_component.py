@@ -17,25 +17,13 @@ def load_component(compo_name, model_name, config):
     return component
 
 
-def load_ransac(model_name, config):
-    if model_name == "ransac":
-        ransac = ransacs.RANSAC(config)
-    elif model_name == "degensac":
-        ransac = ransacs.Degensac(config)
-    elif model_name == "magsac":
-        ransac = ransacs.Magsac(config)
-    elif model_name == "magsacpp":
-        ransac = ransacs.Magsacpp(config)
-    else:
-        raise NotImplementedError
-    return ransac
-
-
 def load_extractor(model_name, config):
     if model_name == "root":
         extractor = extractors.ExtractSIFT(config)
     elif model_name == "sp":
         extractor = extractors.ExtractSuperpoint(config)
+    elif model_name=="d2":
+        extractor = extractors.ExtractD2Net(config)
     else:
         raise NotImplementedError
     return extractor
@@ -69,3 +57,15 @@ def load_evaluator(model_name, config):
     else:
         raise NotImplementedError
     return evaluator
+
+
+def load_ransac(model_name, config):
+    if model_name == "ransac":
+        ransac = ransacs.RANSAC(config)
+    elif model_name == "degensac":
+        ransac = ransacs.Degensac(config)
+    elif model_name == "magsacpp":
+        ransac = ransacs.Magsacpp(config)
+    else:
+        raise NotImplementedError
+    return ransac
