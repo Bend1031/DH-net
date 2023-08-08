@@ -59,9 +59,11 @@ class D2Net(nn.Module):
 
         if model_file is not None:
             if use_cuda:
-                self.load_state_dict(torch.load(model_file)['model'])
+                self.load_state_dict(torch.load(model_file)["model"])
             else:
-                self.load_state_dict(torch.load(model_file, map_location='cpu')['model'])
+                self.load_state_dict(
+                    torch.load(model_file, map_location="cpu")["model"]
+                )
 
     def forward(self, batch):
         _, _, h, w = batch.size()
@@ -72,9 +74,9 @@ class D2Net(nn.Module):
         displacements = self.localization(dense_features)
 
         return {
-            'dense_features': dense_features,
-            'detections': detections,
-            'displacements': displacements
+            "dense_features": dense_features,
+            "detections": detections,
+            "displacements": displacements,
         }
 
 
@@ -84,28 +86,28 @@ class HardDetectionModule(nn.Module):
 
         self.edge_threshold = edge_threshold
 
-        self.dii_filter = torch.tensor(
-            [[0, 1., 0], [0, -2., 0], [0, 1., 0]]
-        ).view(1, 1, 3, 3)
+        self.dii_filter = torch.tensor([[0, 1.0, 0], [0, -2.0, 0], [0, 1.0, 0]]).view(
+            1, 1, 3, 3
+        )
         self.dij_filter = 0.25 * torch.tensor(
-            [[1., 0, -1.], [0, 0., 0], [-1., 0, 1.]]
+            [[1.0, 0, -1.0], [0, 0.0, 0], [-1.0, 0, 1.0]]
         ).view(1, 1, 3, 3)
-        self.djj_filter = torch.tensor(
-            [[0, 0, 0], [1., -2., 1.], [0, 0, 0]]
-        ).view(1, 1, 3, 3)
+        self.djj_filter = torch.tensor([[0, 0, 0], [1.0, -2.0, 1.0], [0, 0, 0]]).view(
+            1, 1, 3, 3
+        )
 
     def forward(self, batch):
         b, c, h, w = batch.size()
         device = batch.device
 
-        #计算深度方向上的最大值
+        # 计算深度方向上的最大值
         depth_wise_max = torch.max(batch, dim=1)[0]
-        is_depth_wise_max = (batch == depth_wise_max)
+        is_depth_wise_max = batch == depth_wise_max
         del depth_wise_max
 
-        #计算局部最大值
+        # 计算局部最大值
         local_max = F.max_pool2d(batch, 3, stride=1, padding=1)
-        is_local_max = (batch == local_max)
+        is_local_max = batch == local_max
         del local_max
 
         dii = F.conv2d(
@@ -125,10 +127,7 @@ class HardDetectionModule(nn.Module):
         threshold = (self.edge_threshold + 1) ** 2 / self.edge_threshold
         is_not_edge = torch.min(tr * tr / det <= threshold, det > 0)
 
-        detected = torch.min(
-            is_depth_wise_max,
-            torch.min(is_local_max, is_not_edge)
-        )
+        detected = torch.min(is_depth_wise_max, torch.min(is_local_max, is_not_edge))
         del is_depth_wise_max, is_local_max, is_not_edge
 
         return detected
@@ -138,22 +137,22 @@ class HandcraftedLocalizationModule(nn.Module):
     def __init__(self):
         super(HandcraftedLocalizationModule, self).__init__()
 
-        self.di_filter = torch.tensor(
-            [[0, -0.5, 0], [0, 0, 0], [0,  0.5, 0]]
-        ).view(1, 1, 3, 3)
-        self.dj_filter = torch.tensor(
-            [[0, 0, 0], [-0.5, 0, 0.5], [0, 0, 0]]
-        ).view(1, 1, 3, 3)
+        self.di_filter = torch.tensor([[0, -0.5, 0], [0, 0, 0], [0, 0.5, 0]]).view(
+            1, 1, 3, 3
+        )
+        self.dj_filter = torch.tensor([[0, 0, 0], [-0.5, 0, 0.5], [0, 0, 0]]).view(
+            1, 1, 3, 3
+        )
 
-        self.dii_filter = torch.tensor(
-            [[0, 1., 0], [0, -2., 0], [0, 1., 0]]
-        ).view(1, 1, 3, 3)
+        self.dii_filter = torch.tensor([[0, 1.0, 0], [0, -2.0, 0], [0, 1.0, 0]]).view(
+            1, 1, 3, 3
+        )
         self.dij_filter = 0.25 * torch.tensor(
-            [[1., 0, -1.], [0, 0., 0], [-1., 0, 1.]]
+            [[1.0, 0, -1.0], [0, 0.0, 0], [-1.0, 0, 1.0]]
         ).view(1, 1, 3, 3)
-        self.djj_filter = torch.tensor(
-            [[0, 0, 0], [1., -2., 1.], [0, 0, 0]]
-        ).view(1, 1, 3, 3)
+        self.djj_filter = torch.tensor([[0, 0, 0], [1.0, -2.0, 1.0], [0, 0, 0]]).view(
+            1, 1, 3, 3
+        )
 
     def forward(self, batch):
         b, c, h, w = batch.size()

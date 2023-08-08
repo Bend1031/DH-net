@@ -72,7 +72,38 @@ def img_align(img1, img2, H):
     h, w = img2.shape[:2]
     img1_warped = cv2.warpPerspective(img1, H, (w, h))
 
-    # Display the aligned images
-    aligned_image = cv2.hconcat([img1_warped, img2])
-    cv2.imshow("Aligned Images", aligned_image)
+    # 生成棋盘格图像
+    check_img = checkboard(img2, img1_warped, 10)
+    cv2.imshow("Checkerboard", check_img)
+    # cv2.imshow('Chessboard Overlay', merged)
+    # 等待用户按下任意键关闭窗口
     cv2.waitKey(0)
+
+    # 关闭窗口和释放内存
+    cv2.destroyAllWindows()
+
+    # Display the aligned images
+    # aligned_image = cv2.hconcat([img1_warped, img2])
+    # cv2.imshow("Aligned Images", aligned_image)
+    # cv2.waitKey(0)
+
+
+def checkboard(I1, I2, n):
+    assert I1.shape == I2.shape
+    height, width, channels = I1.shape
+    hi, wi = height / n, width / n
+    outshape = (int(hi * n), int(wi * n), channels)
+    out_image = np.zeros(outshape, dtype="uint8")
+
+    for i in range(n):
+        h = int(round(hi * i))
+        h1 = int(round(h + hi))
+        for j in range(n):
+            w = int(round(wi * j))
+            w1 = int(round(w + wi))
+            if (i - j) % 2 == 0:
+                out_image[h:h1, w:w1, :] = I1[h:h1, w:w1, :]
+            else:
+                out_image[h:h1, w:w1, :] = I2[h:h1, w:w1, :]
+
+    return out_image

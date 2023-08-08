@@ -1,15 +1,18 @@
 import argparse
+import time
 
+import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from sklearn.decomposition import PCA
 
 from lib.exceptions import EmptyTensorError
 
 
 def preprocess_image(image, preprocessing=None):
     image = image.astype(np.float32)
-    image = np.transpose(image, [2, 0, 1])#[c, h, w]
+    image = np.transpose(image, [2, 0, 1])  # [c, h, w]
     if preprocessing is None:
         pass
     elif preprocessing == "caffe":
@@ -231,3 +234,70 @@ def parse_args():
     )
 
     return parser.parse_args()
+
+
+def pca(X, k):
+    """
+    X: 数据矩阵，每一行表示一个样本，每一列表示一个特征
+    k: 降维后的维数
+    """
+    pca = PCA(n_components=k)
+    X_new = pca.fit_transform(X)
+
+    alpha = 0
+    X_norm = np.linalg.norm(X_new, axis=0)
+    X_new = X_new / (X_norm + alpha)
+    return X_new
+
+
+def flann(kps_left, kps_right, des_left, des_right):
+    match_start_time = time.time()
+
+    FLANN_INDEX_KDTREE = 1
+    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+    search_params = dict(checks=40)
+    flann = cv2.FlannBasedMatcher(index_params, search_params)
+    matches = flann.knnMatch(
+        des_left,
+        des_right,
+        k=2,
+    )
+    goodMatch = []
+    locations_1_to_use = []
+    locations_2_to_use = []
+    for m, n in matches:
+        if m.distance < 0.99 * n.distance:
+            goodMatch.append(m)
+            p2 = cv2.KeyPoint(kps_right[m.trainIdx][0], kps_right[m.trainIdx][1], 1)
+            p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
+            locations_1_to_use.append([p1.pt[0], p1.pt[1]])
+            locations_2_to_use.append([p2.pt[0], p2.pt[1]])
+    # goodMatch = sorted(goodMatch, key=lambda x: x.distance)
+    match_end_time = time.time()
+    print("match num is %d" % len(goodMatch))
+    print("match time is %6.3f ms" % ((match_end_time - match_start_time) * 1000))
+    locations_1_to_use = np.array(locations_1_to_use)
+    locations_2_to_use = np.array(locations_2_to_use)
+
+    return locations_1_to_use, locations_2_to_use
+
+
+def calcRMSE(src_pts, dst_pts, M):
+    """测试版,按此计算并非真值的RMSE"""
+    # 求残差
+    sum_H = 0  # 残差和
+    num = 0  # 参与统计的总个数
+    for i, j in zip(src_pts, dst_pts):
+        # 将源点通过变换M变换到目标点
+        i = np.array([i[0], i[1], 1]).reshape(3, 1)
+        j = np.array([j[0], j[1], 1]).reshape(3, 1)
+        H_i = np.dot(M, i)
+        H_i = H_i / H_i[2]
+        # 计算残差
+        diff = H_i[:2] - j[:2]
+        sum_H += np.sum(diff**2)
+        num += 1
+    # 计算RMSE
+    rmse = np.sqrt(sum_H / num)
+    print(f"RMSE:{rmse:.3f}")
+    return rmse

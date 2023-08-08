@@ -102,9 +102,10 @@ class matcher(nn.Module):
         self.layer_num = config.layer_num
         self.sink_iter = config.sink_iter
         self.position_encoder = nn.Sequential(
-            nn.Conv1d(3, 32, kernel_size=1)
             # 如果配置中设置了use_score_encoding为False，则只使用局部特征的前两个坐标作为位置编码；否则，将使用局部特征的三个坐标作为位置编码
-            if config.use_score_encoding else nn.Conv1d(2, 32, kernel_size=1),
+            nn.Conv1d(3, 32, kernel_size=1)
+            if config.use_score_encoding
+            else nn.Conv1d(2, 32, kernel_size=1),
             nn.SyncBatchNorm(32),
             nn.ReLU(),
             nn.Conv1d(32, 64, kernel_size=1),

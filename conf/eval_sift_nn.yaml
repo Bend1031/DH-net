@@ -1,0 +1,9 @@
+defaults:
+  - extractor: root
+  - matcher: nn
+  - ransac: magsacpp
+  - _self_
+
+hydra:
+  run:
+    dir: outputs/${extractor.name}/${matcher.name}/${ransac.name}

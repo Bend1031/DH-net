@@ -8,7 +8,10 @@ class DenseFeatureExtractionModule(nn.Module):
     def __init__(self, finetune_feature_extraction=False, use_cuda=True):
         super(DenseFeatureExtractionModule, self).__init__()
 
+        # 使用预训练模型
+        # model = models.vgg16(pretrained=True)
         model = models.vgg16()
+        # print(model)
         vgg16_layers = [
             "conv1_1",
             "relu1_1",
@@ -46,7 +49,7 @@ class DenseFeatureExtractionModule(nn.Module):
 
         self.model = nn.Sequential(*list(model.features.children())[: conv4_3_idx + 1])
 
-        self.num_channels = 512
+        self.num_channels = 256
 
         # Fix forward parameters
         for param in self.model.parameters():
@@ -77,30 +80,30 @@ class SoftDetectionModule(nn.Module):
     def forward(self, batch):
         b = batch.size(0)
 
-        batch = F.relu(batch) #[2,512,32,32]
+        batch = F.relu(batch)  # [2,512,32,32]
 
-        max_per_sample = torch.max(batch.view(b, -1), dim=1)[0]# 每幅图特征的最大值[2,]
+        max_per_sample = torch.max(batch.view(b, -1), dim=1)[0]  # 每幅图特征的最大值[2,]
 
-        exp = torch.exp(batch / max_per_sample.view(b, 1, 1, 1))#[2,512,32,32]
+        exp = torch.exp(batch / max_per_sample.view(b, 1, 1, 1))  # [2,512,32,32]
 
         sum_exp = self.soft_local_max_size**2 * F.avg_pool2d(
             F.pad(exp, [self.pad] * 4, mode="constant", value=1.0),
-            self.soft_local_max_size,#(3,3)
+            self.soft_local_max_size,  # (3,3)
             stride=1,
         )
 
         local_max_score = exp / sum_exp
 
-        #计算每个像素点在通道维度上的最大值 depth_wise_max，然后计算每个像素点相对于最大值的得分 depth_wise_max_score。
-        depth_wise_max = torch.max(batch, dim=1)[0]#2,32,32
-
+        # 计算每个像素点在通道维度上的最大值 depth_wise_max，然后计算每个像素点相对于最大值的得分 depth_wise_max_score。
+        depth_wise_max = torch.max(batch, dim=1)[0]  # 2,32,32
         depth_wise_max_score = batch / depth_wise_max.unsqueeze(1)
 
         all_scores = local_max_score * depth_wise_max_score
 
         score = torch.max(all_scores, dim=1)[0]
 
-        score = score / torch.sum(score.view(b, -1), dim=1).view(b, 1, 1)#2,32,32
+        score = score / torch.sum(score.view(b, -1), dim=1).view(b, 1, 1)
+        # [2,32,32]
 
         return score
 

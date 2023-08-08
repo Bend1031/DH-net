@@ -2,7 +2,9 @@ import torch
 from torch import nn
 
 
-def simple_nms(scores, nms_radius):
+# https://github.com/magicleap/SuperGluePretrainedNetwork/blob/master/models/superpoint.py
+def simple_nms(scores, nms_radius: int):
+    """Fast Non-maximum suppression to remove nearby points 使得特征点不会过于集中,nms_radius越大,特征点越分散"""
     assert nms_radius >= 0
 
     def max_pool(x):
@@ -20,21 +22,23 @@ def simple_nms(scores, nms_radius):
     return torch.where(max_mask, scores, zeros)
 
 
-def remove_borders(keypoints, scores, b, h, w):
-    mask_h = (keypoints[:, 0] >= b) & (keypoints[:, 0] < (h - b))
-    mask_w = (keypoints[:, 1] >= b) & (keypoints[:, 1] < (w - b))
+def remove_borders(keypoints, scores, border: int, height: int, width: int):
+    """Removes keypoints too close to the border"""
+    mask_h = (keypoints[:, 0] >= border) & (keypoints[:, 0] < (height - border))
+    mask_w = (keypoints[:, 1] >= border) & (keypoints[:, 1] < (width - border))
     mask = mask_h & mask_w
     return keypoints[mask], scores[mask]
 
 
-def top_k_keypoints(keypoints, scores, k):
+def top_k_keypoints(keypoints, scores, k: int):
     if k >= len(keypoints):
         return keypoints, scores
     scores, indices = torch.topk(scores, k, dim=0)
     return keypoints[indices], scores
 
 
-def sample_descriptors(keypoints, descriptors, s):
+def sample_descriptors(keypoints, descriptors, s: int = 8):
+    """Interpolate descriptors at keypoint locations"""
     b, c, h, w = descriptors.shape
     keypoints = keypoints - s / 2 + 0.5
     keypoints /= torch.tensor(
@@ -43,13 +47,9 @@ def sample_descriptors(keypoints, descriptors, s):
         keypoints
     )[None]
     keypoints = keypoints * 2 - 1  # normalize to (-1, 1)
-    args = {"align_corners": True} if int(torch.__version__[2]) > 2 else {}
+    args = {"align_corners": True} if torch.__version__ >= "1.3" else {}
     descriptors = torch.nn.functional.grid_sample(
-        descriptors,
-        keypoints.view(b, 1, -1, 2),
-        mode="bilinear",
-        align_corners=True,
-        **args
+        descriptors, keypoints.view(b, 1, -1, 2), mode="bilinear", **args
     )
     descriptors = torch.nn.functional.normalize(
         descriptors.reshape(b, c, -1), p=2, dim=1

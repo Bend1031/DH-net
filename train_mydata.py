@@ -16,8 +16,8 @@ from lib.utils import parse_args
 
 # %%init cuda and seed
 # CUDA
-writer_train_loss = SummaryWriter("./runs/train_loss")
-writer_valid_loss = SummaryWriter("./runs/valid_loss")
+writer_train_loss = SummaryWriter("./runs/qxs256/train_loss")
+writer_valid_loss = SummaryWriter("./runs/qxs256/valid_loss")
 
 use_cuda = torch.cuda.is_available()
 device = torch.device("cuda:0" if use_cuda else "cpu")
@@ -74,7 +74,7 @@ training_dataloader = DataLoader(
     training_dataset, batch_size=args.batch_size, num_workers=args.num_workers
 )
 # %% Creating CNN model and optimizer
-model = D2Net(model_file=args.model_file, use_cuda=use_cuda)
+model = D2Net(use_cuda=use_cuda)
 
 # Optimizer
 optimizer = optim.Adam(

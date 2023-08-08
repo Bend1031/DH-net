@@ -21,7 +21,7 @@ class RANSAC:
             srcPoints=corr1,
             dstPoints=corr2,
             method=cv2.RANSAC,
-            ransacReprojThreshold=self,
+            ransacReprojThreshold=self.threshold,
             confidence=self.confidence,
             maxIters=self.max_iters,
         )

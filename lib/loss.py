@@ -1,4 +1,3 @@
-import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
@@ -12,6 +11,8 @@ from lib.utils import (
     savefig,
     upscale_positions,
 )
+from utils.pytorch_geom import get_dist_mat, interpolate, rnd_sample
+
 
 def loss_function(
     model, batch, device, margin=1, safe_radius=4, scaling_steps=3, plot=False
@@ -517,3 +518,320 @@ def warp(pos1, depth1, intrinsics1, pose1, bbox1, depth2, intrinsics2, pose2, bb
     pos1 = pos1[:, inlier_mask]
 
     return pos1, pos2, ids
+
+
+def loss_l2(model, batch, device):
+    # model.to(device)
+    output0 = model(batch["image1"].to(device))
+    output1 = model(batch["image2"].to(device))
+
+    dense_feat_map0 = output0["dense_feat_map"]
+    dense_feat_map1 = output1["dense_feat_map"]
+    pos0 = output0["kpts"]
+    pos1 = output1["kpts"]
+    score_map0 = output0["score_map"]
+    score_map1 = output1["score_map"]
+
+    batch_size = pos0.shape[0]
+    num_corr = pos0.shape[1]
+    loss_type = "L2NET"
+    config = None
+
+    loss, acc = make_detector_loss(
+        pos0,
+        pos1,
+        dense_feat_map0,
+        dense_feat_map1,
+        score_map0,
+        score_map1,
+        batch_size,
+        num_corr,
+        loss_type,
+        config,
+    )
+    return loss
+
+
+def make_detector_loss(
+    pos0,
+    pos1,
+    dense_feat_map0,
+    dense_feat_map1,
+    score_map0,
+    score_map1,
+    batch_size,
+    num_corr,
+    loss_type,
+    config,
+):
+    joint_loss = torch.tensor(0.0)
+    accuracy = torch.tensor(0.0)
+    all_valid_pos0 = []
+    all_valid_pos1 = []
+    all_valid_match = []
+    for i in range(batch_size):
+        # random sample
+        valid_pos0, valid_pos1 = rnd_sample([pos0[i], pos1[i]], num_corr)
+        valid_pos0 = valid_pos0.unsqueeze(0)
+        valid_pos1 = valid_pos1.unsqueeze(0)
+        valid_num = valid_pos0.shape[1]
+
+        valid_feat0 = interpolate(valid_pos0 / 4, dense_feat_map0[i], batched=True)
+        valid_feat1 = interpolate(valid_pos1 / 4, dense_feat_map1[i], batched=True)
+
+        valid_feat0 = F.normalize(valid_feat0, dim=-1)
+        valid_feat1 = F.normalize(valid_feat1, dim=-1)
+
+        valid_score0 = interpolate(
+            valid_pos0, score_map0[i].squeeze(dim=-1), batched=True
+        )
+        valid_score1 = interpolate(
+            valid_pos1, score_map1[i].squeeze(dim=-1), batched=True
+        )
+        # if config["det"]["corr_weight"]:
+        if True:
+            corr_weight = valid_score0 * valid_score1
+        else:
+            corr_weight = None
+
+        # safe_radius = config["det"]["safe_radius"]
+        safe_radius = 3
+
+        if safe_radius > 0:
+            radius_mask_row = get_dist_mat(
+                valid_pos1, valid_pos1, "euclidean_dist_no_norm"
+            )
+            radius_mask_row = radius_mask_row < safe_radius
+
+            radius_mask_col = get_dist_mat(
+                valid_pos0, valid_pos0, "euclidean_dist_no_norm"
+            )
+            radius_mask_col = radius_mask_col < safe_radius
+
+            radius_mask_row = radius_mask_row.float() - torch.eye(valid_num).cuda()
+            radius_mask_col = radius_mask_col.float() - torch.eye(valid_num).cuda()
+        else:
+            radius_mask_row = None
+            radius_mask_col = None
+
+        # 有效的匹配点的数量过少
+        if valid_num < 32:
+            si_loss = torch.tensor(0.0)
+            si_accuracy = torch.tensor(1.0)
+            matched_mask = torch.zeros((1, valid_num), dtype=torch.bool)
+        else:
+            si_loss, si_accuracy, matched_mask = make_structured_loss(
+                valid_feat0,
+                valid_feat1,
+                loss_type=loss_type,
+                radius_mask_row=radius_mask_row,
+                radius_mask_col=radius_mask_col,
+                corr_weight=corr_weight if corr_weight is not None else None,
+                name="si_loss",
+            )
+
+        joint_loss += si_loss.cpu() / batch_size
+        accuracy += si_accuracy.cpu() / batch_size
+        all_valid_match.append(matched_mask.squeeze(dim=0))
+        all_valid_pos0.append(valid_pos0)
+        all_valid_pos1.append(valid_pos1)
+
+    return joint_loss, accuracy
+
+
+def make_quadruple_loss(kpt_m0, kpt_m1, inlier_num):
+    batch_size = kpt_m0.size(0)
+    num_corr = kpt_m1.size(1)
+    kpt_m_diff0 = torch.transpose(kpt_m0.repeat(1, 1, num_corr), 1, 2) - kpt_m0
+    kpt_m_diff1 = torch.transpose(kpt_m1.repeat(1, 1, num_corr), 1, 2) - kpt_m1
+
+    R = kpt_m_diff0 * kpt_m_diff1
+
+    quad_loss = 0
+    accuracy = 0
+    for i in range(batch_size):
+        cur_inlier_num = inlier_num[i].squeeze()
+        inlier_block = R[i, 0:cur_inlier_num, 0:cur_inlier_num]
+        inlier_block = inlier_block + torch.eye(cur_inlier_num)
+        inlier_block = torch.maximum(torch.tensor(0.0), 1.0 - inlier_block)
+        error = torch.count_nonzero(inlier_block)
+        cur_inlier_num = cur_inlier_num.to(torch.float32)
+        quad_loss += torch.sum(inlier_block) / (cur_inlier_num * (cur_inlier_num - 1))
+        accuracy += 1.0 - error.to(torch.float32) / (
+            cur_inlier_num * (cur_inlier_num - 1)
+        )
+
+    quad_loss /= float(batch_size)
+    accuracy /= float(batch_size)
+    return quad_loss, accuracy
+
+
+def make_structured_loss(
+    feat_anc,
+    feat_pos,
+    loss_type="RATIO",
+    inlier_mask=None,
+    radius_mask_row=None,
+    radius_mask_col=None,
+    corr_weight=None,
+    dist_mat=None,
+    name="loss",
+):
+    batch_size = feat_anc.size(0)
+    num_corr = feat_anc.size(1)
+    if inlier_mask is None:
+        inlier_mask = torch.ones((batch_size, num_corr), dtype=torch.bool)
+    inlier_num = torch.count_nonzero(inlier_mask, dim=-1)
+
+    if loss_type == "LOG" or loss_type == "L2NET" or loss_type == "CIRCLE":
+        dist_type = "cosine_dist"
+    elif loss_type.find("HARD") >= 0:
+        dist_type = "euclidean_dist"
+    else:
+        raise NotImplementedError()
+
+    if dist_mat is None:
+        dist_mat = get_dist_mat(feat_anc, feat_pos, dist_type)
+    pos_vec = torch.diagonal(dist_mat, dim1=-2, dim2=-1)
+
+    if loss_type.find("HARD") >= 0:
+        neg_margin = 1
+        dist_mat_without_min_on_diag = dist_mat + 10 * torch.eye(num_corr).unsqueeze(0)
+
+        mask = torch.less(dist_mat_without_min_on_diag, 0.008).float()
+        dist_mat_without_min_on_diag += mask * 10
+
+        if radius_mask_row is not None:
+            hard_neg_dist_row = dist_mat_without_min_on_diag + 10 * radius_mask_row
+        else:
+            hard_neg_dist_row = dist_mat_without_min_on_diag
+        if radius_mask_col is not None:
+            hard_neg_dist_col = dist_mat_without_min_on_diag + 10 * radius_mask_col
+        else:
+            hard_neg_dist_col = dist_mat_without_min_on_diag
+
+        hard_neg_dist_row = torch.min(hard_neg_dist_row, dim=-1)[0]
+        hard_neg_dist_col = torch.min(hard_neg_dist_col, dim=-2)[0]
+
+        if loss_type == "HARD_TRIPLET":
+            loss_row = torch.maximum(neg_margin + pos_vec - hard_neg_dist_row, 0)
+            loss_col = torch.maximum(neg_margin + pos_vec - hard_neg_dist_col, 0)
+        elif loss_type == "HARD_CONTRASTIVE":
+            pos_margin = 0.2
+            pos_loss = torch.maximum(pos_vec - pos_margin, 0)
+            loss_row = pos_loss + torch.maximum(neg_margin - hard_neg_dist_row, 0)
+            loss_col = pos_loss + torch.maximum(neg_margin - hard_neg_dist_col, 0)
+        else:
+            raise NotImplementedError()
+
+    elif loss_type == "LOG" or loss_type == "L2NET":
+        if loss_type == "LOG":
+            log_scale = torch.nn.Parameter(torch.tensor(1.0))
+            torch.nn.init.constant_(log_scale, 1.0)
+        else:
+            log_scale = torch.tensor(1.0)
+
+        softmax_row = F.softmax(log_scale * dist_mat, dim=1)
+        softmax_col = F.softmax(log_scale * dist_mat, dim=0)
+
+        loss_row = -torch.log(torch.diagonal(softmax_row, dim1=-2, dim2=-1))
+        loss_col = -torch.log(torch.diagonal(softmax_col, dim1=-2, dim2=-1))
+
+    elif loss_type == "CIRCLE":
+        log_scale = 512
+        m = 0.1
+        neg_mask_row = torch.eye(num_corr).unsqueeze(0)
+        if radius_mask_row is not None:
+            neg_mask_row += radius_mask_row
+        neg_mask_col = torch.eye(num_corr).unsqueeze(0)
+        if radius_mask_col is not None:
+            neg_mask_col += radius_mask_col
+
+        pos_margin = 1 - m
+        neg_margin = m
+        pos_optimal = 1 + m
+        neg_optimal = -m
+
+        neg_mat_row = dist_mat - 128 * neg_mask_row
+        neg_mat_col = dist_mat - 128 * neg_mask_col
+
+        lse_positive = torch.logsumexp(
+            -log_scale
+            * (pos_vec.unsqueeze(-1) - pos_margin)
+            * torch.maximum(pos_optimal - pos_vec.unsqueeze(-1), torch.tensor(0)),
+            dim=-1,
+        )
+
+        lse_negative_row = torch.logsumexp(
+            log_scale
+            * (neg_mat_row - neg_margin)
+            * torch.maximum(neg_mat_row - neg_optimal, torch.tensor(0)),
+            dim=-1,
+        )
+
+        lse_negative_col = torch.logsumexp(
+            log_scale
+            * (neg_mat_col - neg_margin)
+            * torch.maximum(neg_mat_col - neg_optimal, torch.tensor(0)),
+            dim=-2,
+        )
+
+        loss_row = F.softplus(lse_positive + lse_negative_row) / log_scale
+        loss_col = F.softplus(lse_positive + lse_negative_col) / log_scale
+
+    else:
+        raise NotImplementedError()
+
+    if dist_type == "cosine_dist":
+        err_row = dist_mat - pos_vec.unsqueeze(-1)
+        err_col = dist_mat - pos_vec.unsqueeze(-2)
+    elif dist_type == "euclidean_dist" or dist_type == "euclidean_dist_no_norm":
+        err_row = pos_vec.unsqueeze(-1) - dist_mat
+        err_col = pos_vec.unsqueeze(-2) - dist_mat
+    else:
+        raise NotImplementedError()
+    if radius_mask_row is not None:
+        err_row = err_row - 10 * radius_mask_row
+    if radius_mask_col is not None:
+        err_col = err_col - 10 * radius_mask_col
+    err_row = torch.sum(torch.maximum(err_row, torch.tensor(0.0)), dim=-1)
+    err_col = torch.sum(torch.maximum(err_col, torch.tensor(0.0)), dim=-2)
+
+    loss = 0
+    accuracy = 0
+
+    tot_loss = (loss_row + loss_col) / 2
+    if corr_weight is not None:
+        tot_loss = tot_loss * corr_weight
+
+    for i in range(batch_size):
+        if corr_weight is not None:
+            loss += torch.sum(tot_loss[i][inlier_mask[i]]) / (
+                torch.sum(corr_weight[i][inlier_mask[i]]) + 1e-6
+            )
+        else:
+            loss += torch.mean(tot_loss[i][inlier_mask[i]])
+
+        err_row = err_row.unsqueeze(0)
+        err_col = err_col.unsqueeze(0)
+
+        cnt_err_row = torch.count_nonzero(err_row[i][inlier_mask[i]])
+        cnt_err_col = torch.count_nonzero(err_col[i][inlier_mask[i]])
+
+        tot_err = cnt_err_row + cnt_err_col
+
+        accuracy += 1.0 - torch.div(tot_err, inlier_num[i].to(torch.float32)) / (
+            batch_size * 2.0
+        )
+
+    # matched_mask = torch.logical_and(
+    #     torch.equal(err_row, torch.tensor(0.0)), torch.equal(err_col, torch.tensor(0.0))
+    # )
+    matched_mask = (err_row == 0.0) & (err_col == 0.0)
+
+    matched_mask = torch.logical_and(matched_mask.cuda(), inlier_mask.cuda())
+
+    loss /= batch_size
+    accuracy /= batch_size
+
+    return loss, accuracy, matched_mask

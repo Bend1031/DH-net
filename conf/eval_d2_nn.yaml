@@ -1,11 +1,8 @@
 defaults:
   - extractor: d2
-  - matcher: sgm
+  - matcher: nn
   - ransac: magsacpp
   - _self_
-
-matcher:
-  model_dir: weights/sgm/sp
 
 hydra:
   run:

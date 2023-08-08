@@ -139,7 +139,7 @@ class ExtractD2Net:
         self.max_edge = 2500
         self.max_sum_edges = 5000
 
-    def run(self, img_path, scales=[0.25, 0.50, 1.0], nfeatures=1000):
+    def run(self, img_path, scales=[0.25, 0.50, 1.0], nfeatures=-1):
         image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         # repeat single channel image to 3 channel
@@ -201,7 +201,10 @@ class ExtractD2Net:
             res = np.hstack((res, descriptors))
             # 取前几个
             scores = res[0:nfeatures, 0].copy()
-            keypoints = res[0:nfeatures, 1:4].copy()
+            keypoints = res[0:nfeatures, 1:3].copy()
             descriptors = res[0:nfeatures, 4:].copy()
             del res
+
+        # keypoints+scores
+        keypoints = np.concatenate((keypoints[:,[0,1]], np.array([scores]).T), axis=1)
         return keypoints, descriptors

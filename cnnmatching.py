@@ -1,10 +1,9 @@
 import time
 
 import cv2
-import imageio
 import matplotlib.pyplot as plt
 import numpy as np
-from skimage import io, measure, transform
+from skimage import measure, transform
 
 from lib import plotmatch
 from lib.cnn_feature import cnn_feature_extract
@@ -12,19 +11,21 @@ from lib.cnn_feature import cnn_feature_extract
 # time count
 start = time.perf_counter()
 
-_RESIDUAL_THRESHOLD = 30
+_RESIDUAL_THRESHOLD = 3
 # %% load image
-imgfile1 = "demo_1.jpg"
-imgfile2 = "demo_2.jpg"
+imgfile1 = "test_imgs/02/pair1.jpg"
+imgfile2 = "test_imgs/02/pair2.jpg"
+# imgfile1 = "test_imgs/whu/NH49E001013_5_opt.tif"
+# imgfile2 = "test_imgs/whu/NH49E001013_5_sar.tif"
 
 start = time.perf_counter()
 
 # read left image
 # int8 ndarray (H, W, C) C=3
-image1 = imageio.v3.imread(imgfile1)
-image2 = imageio.v3.imread(imgfile2)
-# image1 = io.imread(imgfile1)
-# image2 = io.imread(imgfile2)
+# image1 = imageio.v3.imread(imgfile1)
+# image2 = imageio.v3.imread(imgfile2)
+image1 = cv2.imread(imgfile1)
+image2 = cv2.imread(imgfile2)
 
 print("read image time is %6.3f" % (time.perf_counter() - start))
 
