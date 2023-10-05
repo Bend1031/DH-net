@@ -250,32 +250,48 @@ def pca(X, k):
     return X_new
 
 
-def flann(kps_left, kps_right, des_left, des_right):
-    match_start_time = time.time()
+def flann_match(kps_left, kps_right, des_left, des_right, ratio_threshold=0.99):
+    """
+    使用FLANN算法进行特征匹配
 
+    参数：
+    kps_left (list): 左图中的关键点列表
+    kps_right (list): 右图中的关键点列表
+    des_left (numpy.ndarray): 左图中的特征描述子
+    des_right (numpy.ndarray): 右图中的特征描述子
+    ratio_threshold (float): 用于筛选匹配的阈值，默认为0.95
+
+    返回：
+    locations_1_to_use (numpy.ndarray): 用于匹配的左图关键点位置
+    locations_2_to_use (numpy.ndarray): 用于匹配的右图关键点位置
+    """
+
+    # match_start_time = time.time()
+
+    # 设置FLANN参数
     FLANN_INDEX_KDTREE = 1
     index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
     search_params = dict(checks=40)
     flann = cv2.FlannBasedMatcher(index_params, search_params)
-    matches = flann.knnMatch(
-        des_left,
-        des_right,
-        k=2,
-    )
+
+    # 使用FLANN算法进行匹配
+    matches = flann.knnMatch(des_left, des_right, k=2)
+
     goodMatch = []
     locations_1_to_use = []
     locations_2_to_use = []
+
     for m, n in matches:
-        if m.distance < 0.99 * n.distance:
+        if m.distance < ratio_threshold * n.distance:
             goodMatch.append(m)
             p2 = cv2.KeyPoint(kps_right[m.trainIdx][0], kps_right[m.trainIdx][1], 1)
             p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
             locations_1_to_use.append([p1.pt[0], p1.pt[1]])
             locations_2_to_use.append([p2.pt[0], p2.pt[1]])
-    # goodMatch = sorted(goodMatch, key=lambda x: x.distance)
-    match_end_time = time.time()
-    print("match num is %d" % len(goodMatch))
-    print("match time is %6.3f ms" % ((match_end_time - match_start_time) * 1000))
+
+    # match_end_time = time.time()
+
+    # 将关键点位置转换为NumPy数组
     locations_1_to_use = np.array(locations_1_to_use)
     locations_2_to_use = np.array(locations_2_to_use)
 
@@ -283,7 +299,17 @@ def flann(kps_left, kps_right, des_left, des_right):
 
 
 def calcRMSE(src_pts, dst_pts, M):
-    """测试版,按此计算并非真值的RMSE"""
+    """
+    计算RMSE (Root Mean Squared Error) 误差。
+
+    参数:
+    src_pts (ndarray): 源点坐标，形状为 (N, 2)
+    dst_pts (ndarray): 目标点坐标，形状为 (N, 2)
+    M (ndarray): 变换矩阵，形状为 (3, 3)
+
+    返回:
+    rmse (float): 计算得到的RMSE误差
+    """
     # 求残差
     sum_H = 0  # 残差和
     num = 0  # 参与统计的总个数
@@ -299,5 +325,81 @@ def calcRMSE(src_pts, dst_pts, M):
         num += 1
     # 计算RMSE
     rmse = np.sqrt(sum_H / num)
+    # print(f"RMSE:{rmse:.3f}")
+    return rmse
+
+
+def calc_pix_RMSE(src_pts, M):
+    """像素对应,按此计算并非真值的RMSE"""
+    # 求残差
+    sum_H = 0  # 残差和
+    num = 0  # 参与统计的总个数
+    for i in src_pts:
+        # 将源点通过变换M变换到目标点
+        i = np.array([i[0], i[1], 1]).reshape(3, 1)
+        # j = np.array([j[0], j[1], 1]).reshape(3, 1)
+        H_i = np.dot(M, i)
+        H_i = H_i / H_i[2]
+        # 计算残差
+        diff = H_i[:2] - i[:2]
+        sum_H += np.sum(diff**2)
+        num += 1
+    # 计算RMSE
+    rmse = np.sqrt(sum_H / num)
     print(f"RMSE:{rmse:.3f}")
     return rmse
+
+
+def pix2pix_RMSE(src_pts, dst_pts, threshold=3):
+    """
+    计算两组对应点之间的均方根误差(RMSE)。
+
+    Parameters:
+        src_pts (numpy.ndarray): 第一组点的坐标,表示为一个n*2的NumPy数组。
+        dst_pts (numpy.ndarray): 第二组点的坐标,表示为一个n*2的NumPy数组。应与src_pts具有相同数量的点。
+
+    Returns:
+        float: 两组对应点之间的均方根误差(RMSE)。
+
+    Example:
+        src_pts = np.array([[x1, y1], [x2, y2], ...])  # 第一组点
+        dst_pts = np.array([[x1, y1], [x2, y2], ...])  # 第二组点
+        rmse = pix2pix_RMSE(src_pts, dst_pts)
+        print("均方根误差(RMSE):", rmse)
+    """
+    # 计算两组对应点的距离并求平均rmse
+    # import numpy as np
+
+    # 输入两组点，分别表示为两个n*2的NumPy数组
+    points1 = src_pts  # 第一组点
+    points2 = dst_pts  # 第二组点
+
+    # 计算对应点之间的距离
+    distances = np.linalg.norm(points1 - points2, axis=1)
+
+    # 根据阈值剔除大于阈值的点
+    filter_idx = np.where(distances < threshold)
+    CMP = len(filter_idx[0])
+    print(f"Correct Match Points:{CMP}")
+    filter_distance = distances[filter_idx]
+    bool_list = distances < threshold
+    # print(bool_list)
+
+    # 计算均方根误差（RMSE）
+    rmse = np.sqrt(np.mean(filter_distance**2))
+
+    # print("对应点之间的距离:", filter_distance)
+    print(f"RMSE: {rmse:.2f}")
+    return rmse, bool_list
+
+
+def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=10):
+    H, inliers = cv2.findHomography(
+        srcPoints=srcPoints,
+        dstPoints=dstPoints,
+        method=method,
+        ransacReprojThreshold=_RESIDUAL_THRESHOLD,
+        confidence=0.999,
+        maxIters=10000,
+    )
+    return H, inliers

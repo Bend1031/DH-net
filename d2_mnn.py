@@ -12,7 +12,14 @@ from lib.eval_match import img_align
 from lib.model_test import D2Net
 from lib.pyramid import process_multiscale
 from lib.rootpath import rootPath
-from lib.utils import calcRMSE, flann, pca, preprocess_image
+from lib.utils import (
+    calc_pix_RMSE,
+    calcRMSE,
+    flann_match,
+    magsac,
+    pix2pix_RMSE,
+    preprocess_image,
+)
 from utils import evaluation_utils
 
 
@@ -90,10 +97,6 @@ def cnn_feature_extract(image, multiscale, scales=[0.25, 0.50, 1.0], nfeatures=1
     return keypoints, scores, descriptors
 
 
-_RESIDUAL_THRESHOLD = 1
-# METHOD = cv2.RANSAC
-METHOD = cv2.USAC_MAGSAC
-
 # Creating CNN model
 use_cuda = torch.cuda.is_available()
 model = D2Net(model_file="models/d2_tf.pth", use_cuda=use_cuda)
@@ -103,8 +106,16 @@ multiscale = False
 max_edge = 2500
 max_sum_edges = 5000
 # %% load image
-imgfile1 = "datasets/test_dataset/4sar-optical/pair1-1.jpg"
-imgfile2 = "datasets/test_dataset/4sar-optical/pair1-2.jpg"
+imgfile1 = "datasets/SOPatch/OSdataset/test/opt/d20299.png"
+imgfile2 = "datasets/SOPatch/OSdataset/test/sar/d20299.png"
+# imgfile1 = "datasets/SOPatch/SEN1-2/test/opt/d30325.png"
+# imgfile2 = "datasets/SOPatch/SEN1-2/test/sar/d30325.png"
+# 取文件名
+imgfile_name = imgfile1.split("/")[-1]
+# imgfile1 = "datasets/SOPatch/WHU-SEN-City/test/opt/d10008.png"
+# imgfile2 = "datasets/SOPatch/WHU-SEN-City/test/sar/d10008.png"
+# imgfile1 = "datasets/QXSLAB_SAROPT/opt_256_oc_0.2/100.png"
+# imgfile2 = "datasets/QXSLAB_SAROPT/sar_256_oc_0.2/100.png"
 
 # read left image
 # int8 ndarray (H, W, C) C=3
@@ -122,41 +133,21 @@ print(
     "feature_extract took %.2f ms."
     % ((feature_extract_end_time - feature_extract_start_time) * 1000)
 )
-# %%PCA
-# des_left = pca(des_left, 256)
-# des_right = pca(des_right, 256)
-# %% 特征匹配
-# match: (M, 2) array, where M is the number of matches. For each row, the first
-# element is the index of the feature in the first image and the second element
-# is the index of the feature in the second image.
 
-# match_start_time = time.time()
-# matches = match_descriptors(des_left, des_right, cross_check=True)
-# match_end_time = time.time()
-# locations_1_to_use = kps_left[matches[:, 0], :2]
-# locations_2_to_use = kps_right[matches[:, 1], :2]
-
-# print("Number of raw matches: %d." % matches.shape[0])
-# print(f"match_descriptors took {((match_end_time - match_start_time) * 1000):.2f} ms.")
 # 二者数量需要相等
-locations_1_to_use, locations_2_to_use = flann(kps_left, kps_right, des_left, des_right)
+locations_1_to_use, locations_2_to_use = flann_match(
+    kps_left, kps_right, des_left, des_right
+)
 
 # %% Perform geometric verification using RANSAC.
 start_time = time.time()
-H, inliers = cv2.findHomography(
-    srcPoints=locations_1_to_use,
-    dstPoints=locations_2_to_use,
-    method=METHOD,
-    ransacReprojThreshold=_RESIDUAL_THRESHOLD,
-    confidence=0.999,
-    maxIters=10000,
-)
+H, inliers = magsac(locations_1_to_use, locations_2_to_use)
 end_time = time.time()
-print("Found %d inliers" % sum(inliers))
-print(f"{METHOD} took {((end_time - start_time) * 1000):.2f} ms.")
-
-
 inlier_idxs = np.nonzero(inliers)[0]
+print(f"Found {len(inlier_idxs)} inliers")
+print(f"Magsac took {((end_time - start_time) * 1000):.2f} ms.")
+
+
 if len(inlier_idxs) < 4:
     print("Can't find enough inliers")
     exit(0)
@@ -164,7 +155,10 @@ if len(inlier_idxs) < 4:
 # matches = np.column_stack((inlier_idxs, inlier_idxs))
 corr_match1 = locations_1_to_use[inlier_idxs]
 corr_match2 = locations_2_to_use[inlier_idxs]
-calcRMSE(corr_match1, corr_match2, H)
+
+# calcRMSE(corr_match1, corr_match2, H)
+# calc_pix_RMSE(corr_match1, H)
+rmse, inliers = pix2pix_RMSE(corr_match1, corr_match2, 5)
 # %% evaluation
 # visualize match
 display = evaluation_utils.draw_match(
@@ -172,15 +166,17 @@ display = evaluation_utils.draw_match(
     image2,
     corr_match1,
     corr_match2,
-    # inlier=inliers,
+    inlier=inliers,
 )
 
-# 显示图片
-cv2.imshow(
-    "result.png",
-    display,
-)
+# 显示图片 自适应缩放
+# cv2.namedWindow("result", cv2.WINDOW_NORMAL)
+# cv2.imshow(
+#     "result",
+#     display,
+# )
 
 # 保存图片
-cv2.imwrite("d2_flann_magsac.png", display)
-img_align(image1, image2, H)
+cv2.imwrite(f"d2_flann_magsac_{imgfile_name}", display)
+
+# img_align(image1, image2, H)
