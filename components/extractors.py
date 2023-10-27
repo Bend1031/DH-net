@@ -3,7 +3,6 @@ import sys
 
 import cv2
 import numpy as np
-import scipy.io
 import scipy.misc
 import torch
 from PIL import Image
@@ -206,5 +205,5 @@ class ExtractD2Net:
             del res
 
         # keypoints+scores
-        keypoints = np.concatenate((keypoints[:,[0,1]], np.array([scores]).T), axis=1)
+        keypoints = np.concatenate((keypoints[:, [0, 1]], np.array([scores]).T), axis=1)
         return keypoints, descriptors

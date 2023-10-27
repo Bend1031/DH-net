@@ -2,6 +2,7 @@ import os
 import sys
 from collections import OrderedDict, namedtuple
 
+import cv2  # type:ignore
 import numpy as np
 import torch
 
@@ -104,4 +105,84 @@ class NN_Matcher(object):
         else:
             mask = mask_ratio
         corr1, corr2 = corr1[mask], corr2[mask]
+        return corr1, corr2
+
+
+class FLANN_Matcher:
+    def __init__(self, config):
+        # self.ratio_th = config.ratio_th
+        self.ratio_threshold = config.ratio_threshold
+        # self.ratio_threshold = 0.99
+
+    def run(self, test_data):
+        desc1, desc2, x1, x2 = (
+            test_data["desc1"],
+            test_data["desc2"],
+            test_data["x1"],
+            test_data["x2"],
+        )
+        FLANN_INDEX_KDTREE = 1
+        index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+        search_params = dict(checks=40)
+        flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+        # 使用默认设置:效果很差
+        # flann = cv2.FlannBasedMatcher()
+
+        # 使用FLANN算法进行匹配
+        matches = flann.knnMatch(desc1, desc2, k=2)
+
+        goodMatch = []
+        locations_1_to_use = []
+        locations_2_to_use = []
+
+        for m, n in matches:
+            if m.distance < self.ratio_threshold * n.distance:
+                goodMatch.append(m)
+                p2 = cv2.KeyPoint(x2[m.trainIdx][0], x2[m.trainIdx][1], 1)
+                p1 = cv2.KeyPoint(x1[m.queryIdx][0], x1[m.queryIdx][1], 1)
+                locations_1_to_use.append([p1.pt[0], p1.pt[1]])
+                locations_2_to_use.append([p2.pt[0], p2.pt[1]])
+
+        # match_end_time = time.time()
+
+        # 将关键点位置转换为NumPy数组
+        corr1 = np.array(locations_1_to_use)
+        corr2 = np.array(locations_2_to_use)
+
+        return corr1, corr2
+
+
+class BF_Matcher:
+    def __init__(self, config):
+        # self.ratio_threshold = config.ratio_threshold
+        pass
+
+    def run(self, test_data):
+        desc1, desc2, x1, x2 = (
+            test_data["desc1"],
+            test_data["desc2"],
+            test_data["x1"],
+            test_data["x2"],
+        )
+        bf = cv2.BFMatcher()
+
+        matches = bf.match(desc1, desc2)
+
+        locations_1_to_use = []
+        locations_2_to_use = []
+
+        for m in matches:
+            # goodMatch.append(m)
+            p2 = cv2.KeyPoint(x2[m.trainIdx][0], x2[m.trainIdx][1], 1)
+            p1 = cv2.KeyPoint(x1[m.queryIdx][0], x1[m.queryIdx][1], 1)
+            locations_1_to_use.append([p1.pt[0], p1.pt[1]])
+            locations_2_to_use.append([p2.pt[0], p2.pt[1]])
+
+        # match_end_time = time.time()
+
+        # 将关键点位置转换为NumPy数组
+        corr1 = np.array(locations_1_to_use)
+        corr2 = np.array(locations_2_to_use)
+
         return corr1, corr2

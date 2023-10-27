@@ -23,12 +23,15 @@ from utils import evaluation_utils
 @hydra.main(
     version_base=None,
     config_path=os.path.join(ROOT_DIR, "conf"),
-    config_name="eval_d2_sg",
+    config_name="eval_sp_sg",
 )
 def main(config: Config):
     # random_img = np.random.randint(1, 20000)
-    img1_path = str(rootPath / "datasets/test_dataset/4sar-optical/pair2-1.jpg")
-    img2_path = str(rootPath / "datasets/test_dataset/4sar-optical/pair2-2.jpg")
+    # 读取图片路径
+    # img1_path = str(rootPath / r"datasets/SOPatch/OSdataset/val/opt/d20096.png")
+    # img2_path = str(rootPath / r"datasets/SOPatch/OSdataset/val/sar/d20096.png")
+    img1_path = str(rootPath / r"demo/demo_1.jpg")
+    img2_path = str(rootPath / r"demo/demo_2.jpg")
 
     # %% extractor提取特征点和描述子
     extractor = load_component("extractor", config.extractor.name, config.extractor)
@@ -41,14 +44,18 @@ def main(config: Config):
         np.asarray(img2.shape[:2])
     )
     # (num_keypoints, 3):(x,y,score) , (num_keypoints, 128)
+    # start = time.perf_counter()
     kpt1, desc1 = extractor.run(img1_path)
     kpt2, desc2 = extractor.run(img2_path)
-    print(f"extract {len(kpt1)} points")
+    # end = time.perf_counter()
+    # print(f"{config.extractor.name} extract time: {end - start:.2f}s")
+    # print(f"extract {len(kpt1)} points")
+    # print(f"extract {len(kpt2)} points")
 
     # d2:512->256 pca
-    if config.extractor.name == "d2":
-        desc1 = pca(desc1, 256)
-        desc2 = pca(desc2, 256)
+    # if config.extractor.name == "d2":
+    #     desc1 = pca(desc1, 256)
+    #     desc2 = pca(desc2, 256)
 
     # %% matcher
     matcher = load_component("matcher", config.matcher.name, config.matcher)
@@ -62,23 +69,28 @@ def main(config: Config):
     }
     # 匹配点的坐标 (num_keypoints, 2), (num_keypoints, 2)
     # 匹配耗时
-    match_start = time.perf_counter()
+    # match_start = time.perf_counter()
     corr1, corr2 = matcher.run(test_data)
-    match_end = time.perf_counter()
+    # match_end = time.perf_counter()
     print(f"match {len(corr1)} points")
-    print(f"{config.matcher.name} match time: {match_end - match_start:.2f}")
+    # print(f"{config.matcher.name} match time: {match_end - match_start:.2f}s")
 
     # %% ransac
     ransac = load_component("ransac", config.ransac.name, config.ransac)
-    ransac_start = time.perf_counter()
+    # ransac_start = time.perf_counter()
     H, corr1, corr2 = ransac.run(corr1, corr2)
-    ransac_end = time.perf_counter()
+    # ransac_end = time.perf_counter()
     print(f"after ransac, match {len(corr1)} points")
-    print(f"{config.ransac.name} ransac time: {ransac_end - ransac_start:.4f}")
+    # print(f"{config.ransac.name} ransac time: {ransac_end - ransac_start:.4f}s")
+
+    # 保存到match.txt
+    # with open("match.txt", "w") as f:
+    #     for i in range(len(corr1)):
+    #         f.write(f"{corr1[i][0]} {corr1[i][1]} {corr2[i][0]} {corr2[i][1]}\n")
 
     # %% evaluation
     # show align image
-    img_align(img1, img2, H)
+    # img_align(img1, img2, H)
 
     # draw points
     # dis_points_1 = evaluation_utils.draw_points(img1, kpt1)
@@ -86,6 +98,9 @@ def main(config: Config):
 
     # visualize match
     display = evaluation_utils.draw_match(img1, img2, corr1, corr2)
+    # cv2.namedWindow("match", cv2.WINDOW_NORMAL)
+    # cv2.resizeWindow("match", 1000, 600)
+
     cv2.imshow("match", display)
     cv2.waitKey(0)
     cv2.imwrite(
@@ -93,7 +108,7 @@ def main(config: Config):
         display,
     )
 
-    print("match result saved in match.png")
+    # print("match result saved in match.png")
 
 
 if __name__ == "__main__":

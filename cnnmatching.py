@@ -13,8 +13,8 @@ start = time.perf_counter()
 
 _RESIDUAL_THRESHOLD = 3
 # %% load image
-imgfile1 = "test_imgs/02/pair1.jpg"
-imgfile2 = "test_imgs/02/pair2.jpg"
+imgfile1 = "datasets/SOPatch/WHU-SEN-City/val/opt/d10011.png"
+imgfile2 = "datasets/SOPatch/WHU-SEN-City/val/sar/d10011.png"
 # imgfile1 = "test_imgs/whu/NH49E001013_5_opt.tif"
 # imgfile2 = "test_imgs/whu/NH49E001013_5_sar.tif"
 

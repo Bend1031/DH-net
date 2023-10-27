@@ -24,10 +24,21 @@ class L2Net(nn.Module):
         self.detection4 = MulDet(level=4)
 
     def extract_kpts(
-        self, score_map, k=256, score_thld=0.0, edge_thld=0, nms_size=3, eof_size=5
+        self, score_map, k=4000, score_thld=0.0, edge_thld=0, nms_size=3, eof_size=5
     ):
         """
         Extracts keypoints from a score map.
+        score_map: 输入的得分图，它是一个4维的张量，形状为 (batch_size, num_channels, height, width)，表示了每个像素点对应的得分。
+
+        k: 需要提取的关键点数量。默认为 4000。函数会根据这个参数选择得分最高的 k 个关键点。
+
+        score_thld: 得分的阈值。默认为 0.0。低于这个阈值的像素点会被忽略。
+
+        edge_thld: 边缘阈值。默认为 0。这个参数似乎会传递给一个名为 edge_mask 的方法，用于生成一个边缘掩码，但是在这段代码中，edge_mask 的实现并没有被提供。
+
+        nms_size: 非极大值抑制 (NMS) 的窗口大小。默认为 3。NMS 用于抑制重叠的关键点，保留得分最高的关键点。
+
+        eof_size: 边缘截断的大小。默认为 5。这个参数用于在得分图的边缘位置进行截断，以去除边缘可能引入的噪声。
         """
         h, w = score_map.shape[2], score_map.shape[3]
 
@@ -182,7 +193,7 @@ class L2Net(nn.Module):
         kpt_inds, kpt_score = self.extract_kpts(
             score_map,
             k=1000,
-            score_thld=0.3,
+            score_thld=0.0,
             edge_thld=10,
             nms_size=3,
             eof_size=5,

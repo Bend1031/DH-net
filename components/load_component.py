@@ -22,7 +22,7 @@ def load_extractor(model_name, config):
         extractor = extractors.ExtractSIFT(config)
     elif model_name == "sp":
         extractor = extractors.ExtractSuperpoint(config)
-    elif model_name=="d2":
+    elif model_name == "d2":
         extractor = extractors.ExtractD2Net(config)
     else:
         raise NotImplementedError
@@ -36,6 +36,10 @@ def load_matcher(model_name, config):
         matcher = matchers.GNN_Matcher(config, "SG")
     elif model_name == "NN":
         matcher = matchers.NN_Matcher(config)
+    elif model_name == "FLANN":
+        matcher = matchers.FLANN_Matcher(config)
+    elif model_name == "BF":
+        matcher = matchers.BF_Matcher(config)
     else:
         raise NotImplementedError
     return matcher

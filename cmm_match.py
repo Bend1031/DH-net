@@ -1,3 +1,5 @@
+"""CMM方法
+"""
 import time
 
 import cv2
@@ -16,7 +18,7 @@ from lib.eval_match import img_align
 from lib.model_test import D2Net
 from lib.pyramid import process_multiscale
 from lib.rootpath import rootPath
-from lib.utils import preprocess_image
+from lib.utils import pix2pix_RMSE, preprocess_image
 from utils import evaluation_utils
 
 
@@ -105,10 +107,10 @@ multiscale = False
 max_edge = 2500
 max_sum_edges = 5000
 
-_RESIDUAL_THRESHOLD = 1
+_RESIDUAL_THRESHOLD = 3
 # %% load image
-imgfile1 = "datasets/test_dataset/4sar-optical/pair2-1.jpg"
-imgfile2 = "datasets/test_dataset/4sar-optical/pair2-2.jpg"
+imgfile1 = "datasets/test_dataset/4SARSets/pair8-1.tif"
+imgfile2 = "datasets/test_dataset/4SARSets/pair8-2.tif"
 
 # read left image
 # int8 ndarray (H, W, C) C=3
@@ -157,21 +159,21 @@ disdif_avg = 0
 for m, n in matches:
     disdif_avg += n.distance - m.distance
 disdif_avg = disdif_avg / len(matches)
-print(f"ratio={disdif_avg:.2f}")
+# print(f"ratio={disdif_avg:.2f}")
 
 for m, n in matches:
     # 自适应阈值
-    # if n.distance > m.distance + disdif_avg:
-    if m.distance < 0.8 * n.distance:
+    if n.distance > m.distance + disdif_avg:
+        # if m.distance < 0.8 * n.distance:
         goodMatch.append(m)
         p2 = cv2.KeyPoint(kps_right[m.trainIdx][0], kps_right[m.trainIdx][1], 1)
         p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
         locations_1_to_use.append([p1.pt[0], p1.pt[1]])
         locations_2_to_use.append([p2.pt[0], p2.pt[1]])
 goodMatch = sorted(goodMatch, key=lambda x: x.distance)
-match_end_time = time.time()
-print("match num is %d" % len(goodMatch))
-print("match time is %6.3f ms" % ((match_end_time - match_start_time) * 1000))
+# match_end_time = time.time()
+# print("match num is %d" % len(goodMatch))
+# print("match time is %6.3f ms" % ((match_end_time - match_start_time) * 1000))
 locations_1_to_use = np.array(locations_1_to_use)
 locations_2_to_use = np.array(locations_2_to_use)
 
@@ -194,7 +196,7 @@ H, inliers = cv2.findHomography(
     method=cv2.RANSAC,
     ransacReprojThreshold=_RESIDUAL_THRESHOLD,
     confidence=0.999,
-    maxIters=1000,
+    maxIters=10000,
 )
 end_time = time.time()
 print("ransac time is %6.3f ms" % ((end_time - start_time) * 1000))
@@ -209,7 +211,14 @@ print("ransac time is %6.3f ms" % ((end_time - start_time) * 1000))
 
 print("Found %d inliers" % sum(inliers))
 
+
 inlier_idxs = np.nonzero(inliers)[0]
+corr_match1 = locations_1_to_use[inlier_idxs]
+corr_match2 = locations_2_to_use[inlier_idxs]
+rmse, NCM, CMR, bool_list = pix2pix_RMSE(corr_match1, corr_match2)
+# CMR = NCM / len(corr_match1)
+print(f"RMSE: {rmse:.2f}")
+print(f"CMR: {CMR:.2f}")
 # 最终匹配结果
 matches = np.column_stack((inlier_idxs, inlier_idxs))
 
@@ -225,7 +234,9 @@ display = evaluation_utils.draw_match(
     image2,
     locations_1_to_use[inlier_idxs],
     locations_2_to_use[inlier_idxs],
+    inlier=bool_list,
 )
+cv2.namedWindow("result", cv2.WINDOW_NORMAL)
 cv2.imshow(
     "test.png",
     display,

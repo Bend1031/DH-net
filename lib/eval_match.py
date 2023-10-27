@@ -74,6 +74,7 @@ def img_align(img1, img2, H):
 
     # 生成棋盘格图像
     check_img = checkboard(img2, img1_warped, 10)
+    cv2.namedWindow("Checkerboard", cv2.WINDOW_AUTOSIZE)
     cv2.imshow("Checkerboard", check_img)
     # cv2.imshow('Chessboard Overlay', merged)
     # 等待用户按下任意键关闭窗口

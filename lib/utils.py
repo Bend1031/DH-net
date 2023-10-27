@@ -259,7 +259,7 @@ def flann_match(kps_left, kps_right, des_left, des_right, ratio_threshold=0.99):
     kps_right (list): 右图中的关键点列表
     des_left (numpy.ndarray): 左图中的特征描述子
     des_right (numpy.ndarray): 右图中的特征描述子
-    ratio_threshold (float): 用于筛选匹配的阈值，默认为0.95
+    ratio_threshold (float): 用于筛选匹配的阈值，默认为0.99
 
     返回：
     locations_1_to_use (numpy.ndarray): 用于匹配的左图关键点位置
@@ -273,6 +273,9 @@ def flann_match(kps_left, kps_right, des_left, des_right, ratio_threshold=0.99):
     index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
     search_params = dict(checks=40)
     flann = cv2.FlannBasedMatcher(index_params, search_params)
+
+    # 使用默认设置:效果很差
+    # flann = cv2.FlannBasedMatcher()
 
     # 使用FLANN算法进行匹配
     matches = flann.knnMatch(des_left, des_right, k=2)
@@ -288,6 +291,38 @@ def flann_match(kps_left, kps_right, des_left, des_right, ratio_threshold=0.99):
             p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
             locations_1_to_use.append([p1.pt[0], p1.pt[1]])
             locations_2_to_use.append([p2.pt[0], p2.pt[1]])
+
+    # match_end_time = time.time()
+
+    # 将关键点位置转换为NumPy数组
+    locations_1_to_use = np.array(locations_1_to_use)
+    locations_2_to_use = np.array(locations_2_to_use)
+
+    return locations_1_to_use, locations_2_to_use
+
+
+def BruteForce(kps_left, kps_right, des_left, des_right):
+    bf = cv2.BFMatcher()
+    # matches = bf.knnMatch(des_left, des_right, k=2)
+    matches = bf.match(des_left, des_right)
+    # goodMatch = []
+    locations_1_to_use = []
+    locations_2_to_use = []
+
+    # for m, n in matches:
+    #     if m.distance < ratio_threshold * n.distance:
+    #         goodMatch.append(m)
+    #         p2 = cv2.KeyPoint(kps_right[m.trainIdx][0], kps_right[m.trainIdx][1], 1)
+    #         p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
+    #         locations_1_to_use.append([p1.pt[0], p1.pt[1]])
+    #         locations_2_to_use.append([p2.pt[0], p2.pt[1]])
+
+    for m in matches:
+        # goodMatch.append(m)
+        p2 = cv2.KeyPoint(kps_right[m.trainIdx][0], kps_right[m.trainIdx][1], 1)
+        p1 = cv2.KeyPoint(kps_left[m.queryIdx][0], kps_left[m.queryIdx][1], 1)
+        locations_1_to_use.append([p1.pt[0], p1.pt[1]])
+        locations_2_to_use.append([p2.pt[0], p2.pt[1]])
 
     # match_end_time = time.time()
 
@@ -379,21 +414,27 @@ def pix2pix_RMSE(src_pts, dst_pts, threshold=3):
 
     # 根据阈值剔除大于阈值的点
     filter_idx = np.where(distances < threshold)
-    CMP = len(filter_idx[0])
-    print(f"Correct Match Points:{CMP}")
+    NCM = len(filter_idx[0])
+    CMR = NCM / len(points1)
+
     filter_distance = distances[filter_idx]
     bool_list = distances < threshold
     # print(bool_list)
 
     # 计算均方根误差（RMSE）
-    rmse = np.sqrt(np.mean(filter_distance**2))
+    # 所有点都没成功配准
+    if filter_distance.size == 0:
+        RMSE = 0
+    else:
+        RMSE = np.sqrt(np.mean(filter_distance**2))
+    # RMSE=np.mean(distances**2)
 
     # print("对应点之间的距离:", filter_distance)
-    print(f"RMSE: {rmse:.2f}")
-    return rmse, bool_list
+    # print(f"RMSE: {rmse:.2f}")
+    return RMSE, NCM, CMR, bool_list
 
 
-def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=10):
+def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=3):
     H, inliers = cv2.findHomography(
         srcPoints=srcPoints,
         dstPoints=dstPoints,

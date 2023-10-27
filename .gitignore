@@ -17,3 +17,5 @@ runs
 datasets
 outputs
 weights
+imgs
+log

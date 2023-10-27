@@ -51,6 +51,40 @@ def draw_match(
     radius2=1,
     resize=None,
 ):
+    """
+    在两个图像上绘制匹配的特征点或线段，并返回结果图像。
+
+    参数：
+    img1: numpy.ndarray
+        第一个输入图像，可以是任意通道数的彩色或灰度图像。
+    img2: numpy.ndarray
+        第二个输入图像，与img1具有相同的通道数和深度。
+    corr1: numpy.ndarray
+        包含第一个图像中特征点或线段的坐标的数组。
+    corr2: numpy.ndarray
+        包含第二个图像中特征点或线段的坐标的数组。应与corr1具有相同的长度。
+    inlier: list of bool, 可选 (默认值为 [True])
+        一个布尔值列表，指示每个匹配是否为内点。如果提供，应与corr1和corr2具有相同的长度。
+    color: list of tuple, 可选
+        用于绘制匹配的颜色列表。如果未提供，内点将以绿色表示，外点将以红色表示。
+        如果仅提供一个颜色元组，则将所有匹配绘制为该颜色。
+    radius1: int, 可选 (默认值为 1)
+        第一个图像中特征点的半径（用于绘制特征点）。
+    radius2: int, 可选 (默认值为 1)
+        第二个图像中特征点的半径（用于绘制特征点）。
+    resize: tuple of int, 可选
+        一个包含两个整数的元组，表示要缩放图像的目标大小（宽度，高度）。
+        如果提供，函数将首先将图像缩放到目标大小，然后绘制匹配。
+
+    返回：
+    display: numpy.ndarray
+        绘制了匹配的结果图像，其中特征点或线段以给定的颜色表示。
+
+    注意：
+    - 如果提供了resize参数，函数将先缩放图像，然后绘制匹配。在这种情况下，corr1和corr2中的坐标也将相应地缩放。
+    - 如果提供了color参数，可以根据匹配的内外点状态来绘制不同的颜色。
+    - 如果未提供color参数，则内点将以绿色表示，外点将以红色表示。
+    """
     if resize is not None:
         scale1, scale2 = [img1.shape[1] / resize[0], img1.shape[0] / resize[1]], [
             img2.shape[1] / resize[0],
