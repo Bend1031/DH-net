@@ -1,6 +1,7 @@
-"""统一所有方法,对一堆图片进行配准测试
+"""统一所有方法,对一对图片进行配准测试
 """
 
+import logging
 import time
 
 import cv2  # type:ignore
@@ -20,10 +21,11 @@ from utils import evaluation_utils
     config_name="config_single",
 )
 def main(config: Config):
+    log = logging.getLogger(__name__)
     # 读取图片路径
     path1 = "datasets/SOPatch/WHU-SEN-City/test/opt/d10008.png"
     path2 = "datasets/SOPatch/WHU-SEN-City/test/sar/d10008.png"
-
+    log.info(f"img_pair:{path1, path2}")
     img1_path = str(rootPath / path1)
     img2_path = str(rootPath / path2)
 
@@ -43,7 +45,7 @@ def main(config: Config):
     kpt1, desc1 = extractor.run(img1_path)
     kpt2, desc2 = extractor.run(img2_path)
     end = time.perf_counter()
-    print(
+    log.info(
         f"{config.extractor.name}: extract {len(kpt1)},{len(kpt2)} points, extract time: {end - start:.2f}s"
     )
 
@@ -62,7 +64,7 @@ def main(config: Config):
     match_start = time.perf_counter()
     corr1, corr2 = matcher.run(test_data)
     match_end = time.perf_counter()
-    print(
+    log.info(
         f"{config.matcher.name}: match {len(corr1)} points,match time: {match_end - match_start:.2f}s"
     )
 
@@ -71,15 +73,15 @@ def main(config: Config):
     ransac_start = time.perf_counter()
     H, corr1, corr2 = ransac.run(corr1, corr2)
     ransac_end = time.perf_counter()
-    print(
+    log.info(
         f"{config.ransac.name}: match {len(corr1)} points,time: {ransac_end - ransac_start:.4f}s"
     )
 
     RMSE, NCM, CMR, bool_list = pix2pix_RMSE(corr1, corr2)
 
-    print(f"NCM均值为{np.mean(NCM):.2f}")
-    print(f"CMR均值为{np.mean(CMR):.2f}")
-    print(f"RMSE均值为{np.mean(RMSE):.2f}")
+    log.info(f"NCM:{np.mean(NCM):.2f}")
+    log.info(f"CMR:{np.mean(CMR):.2f}")
+    log.info(f"RMSE:{np.mean(RMSE):.2f}")
 
     # %% evaluation
     # show align image
@@ -102,7 +104,7 @@ def main(config: Config):
     #     display,
     # )
 
-    # print("match result saved in match.png")
+    # log.info("match result saved in match.png")
 
 
 if __name__ == "__main__":
