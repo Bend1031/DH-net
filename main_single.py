@@ -10,8 +10,9 @@ import numpy as np
 
 from components import load_component
 from lib.config import Config
+from lib.eval_match import img_align
 from lib.rootpath import rootPath
-from lib.utils import pix2pix_RMSE
+from lib.utils import pix2pix_RMSE, rotate_image
 from utils import evaluation_utils
 
 
@@ -23,9 +24,10 @@ from utils import evaluation_utils
 def main(config: Config):
     log = logging.getLogger(__name__)
     # 读取图片路径
-    path1 = "datasets/SOPatch/WHU-SEN-City/test/opt/d10008.png"
-    path2 = "datasets/SOPatch/WHU-SEN-City/test/sar/d10008.png"
+    path1 = "datasets/SOPatch/SEN1-2/test/opt/d30959.png"
+    path2 = "datasets/SOPatch/SEN1-2/test/sar/d30959.png"
     log.info(f"img_pair:{path1, path2}")
+
     img1_path = str(rootPath / path1)
     img2_path = str(rootPath / path2)
 
@@ -33,7 +35,14 @@ def main(config: Config):
     extractor = load_component("extractor", config.extractor.name, config.extractor)
 
     # (height, width, channels)
-    img1, img2 = cv2.imread(img1_path), cv2.imread(img2_path)
+    # 旋转45度
+    # img1 = cv2.imread(img1_path)
+    # img1 = cv2.rotate(img1, cv2.ROTATE_90_CLOCKWISE)
+    # rotate_angle = 45
+
+    img1 = cv2.imread(img1_path)
+    # img2 = rotate_image(img2_path, rotate_angle)
+    img2 = cv2.imread(img2_path)
 
     # (width, height)
     size1, size2 = np.flip(np.asarray(img1.shape[:2])), np.flip(
@@ -85,19 +94,19 @@ def main(config: Config):
 
     # %% evaluation
     # show align image
-    # img_align(img1, img2, H)
+    img_align(img1, img2, H)
 
     # visualize match
-    # display = evaluation_utils.draw_match(
-    #     img1,
-    #     img2,
-    #     corr1,
-    #     corr2,
-    #     inlier=bool_list,
-    # )
+    display = evaluation_utils.draw_match(
+        img1,
+        img2,
+        corr1,
+        corr2,
+        # inlier=bool_list,
+    )
 
-    # cv2.imshow("match", display)
-    # cv2.waitKey(0)
+    cv2.imshow("match", display)
+    cv2.waitKey(0)
 
     # cv2.imwrite(
     #     f"{config.extractor.name}_{config.matcher.name}_{config.ransac.name}.png",

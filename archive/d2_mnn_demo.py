@@ -10,7 +10,14 @@ from PIL import Image
 from lib.eval_match import img_align
 from lib.model_test import D2Net
 from lib.pyramid import process_multiscale
-from lib.utils import BruteForce, flann_match, magsac, pix2pix_RMSE, preprocess_image
+from lib.utils import (
+    BruteForce,
+    flann_match,
+    magsac,
+    pix2pix_RMSE,
+    preprocess_image,
+    rotate_image,
+)
 from utils import evaluation_utils
 
 
@@ -101,8 +108,8 @@ max_sum_edges = 5000
 # imgfile2 = "datasets/SOPatch/OSdataset/test/sar/d20003.png"
 # imgfile1 = "datasets/SOPatch/SEN1-2/test/opt/d30325.png"
 # imgfile2 = "datasets/SOPatch/SEN1-2/test/sar/d30325.png"
-imgfile1 = "datasets/test_dataset/4SARSets/pair9-1.tif"
-imgfile2 = "datasets/test_dataset/4SARSets/pair9-2.tif"
+imgfile1 = "datasets/SOPatch/SEN1-2/test/opt/d30959.png"
+imgfile2 = "datasets/SOPatch/SEN1-2/test/sar/d30959.png"
 # 取文件名
 imgfile_name = imgfile1.split("/")[-1]
 
@@ -113,7 +120,8 @@ imgfile_name = imgfile1.split("/")[-1]
 # int8 ndarray (H, W, C) C=3
 
 image1 = cv2.imread(imgfile1)
-image2 = cv2.imread(imgfile2)
+# image2 = cv2.imread(imgfile2)
+image2 = rotate_image(imgfile2, 45)
 
 feature_extract_start_time = time.time()
 kps_left, sco_left, des_left = cnn_feature_extract(image1, multiscale, nfeatures=-1)
@@ -133,9 +141,9 @@ start_time = time.time()
 locations_1_to_use, locations_2_to_use = flann_match(
     kps_left, kps_right, des_left, des_right
 )
-locations_1_to_use, locations_2_to_use = BruteForce(
-    kps_left, kps_right, des_left, des_right
-)
+# locations_1_to_use, locations_2_to_use = BruteForce(
+#     kps_left, kps_right, des_left, des_right
+# )
 end_time = time.time()
 print(f"flann_time:{(end_time - start_time)*1000:.2f}ms")
 print(f"flann:{len(locations_1_to_use)}")
@@ -193,4 +201,4 @@ cv2.imshow(
 #     display,
 # )
 cv2.waitKey(0)
-# img_align(image1, image2, H)
+img_align(image1, image2, H)

@@ -1,6 +1,6 @@
 defaults:
-  - extractor: sp
-  - matcher: sg
+  - extractor: d2
+  - matcher: bf
   - ransac: magsacpp
   - dataset: osdataset
   - _self_
@@ -14,5 +14,3 @@ hydra:
     subdir: ${dataset.name}
   run:
     dir: log/${extractor.name}_${matcher.name}_${ransac.name}
-  # job_logging: disabled
-  

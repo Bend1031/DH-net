@@ -1,6 +1,6 @@
 defaults:
   - extractor: d2
-  - matcher: bf
+  - matcher: flann
   - ransac: magsacpp
   - dataset: osdataset
   - _self_

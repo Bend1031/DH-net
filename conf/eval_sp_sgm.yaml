@@ -1,11 +1,18 @@
 defaults:
-  - _self_
   - extractor: sp
   - matcher: sgm
   - ransac: magsacpp
+  - dataset: sen1-2
+  - _self_
 
 # - matcher:
 #   use_score_encoding: False
 hydra:
+  sweeper:
+    params:
+      dataset: osdataset,sen1-2,whu-sen-city
+  sweep:
+    dir: log/multirun/${extractor.name}_${matcher.name}_${ransac.name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${dataset.name}
   run:
-    dir: outputs/${extractor.name}/${matcher.name}/${ransac.name}
+    dir: log/${extractor.name}_${matcher.name}_${ransac.name}

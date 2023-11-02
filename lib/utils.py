@@ -186,7 +186,7 @@ def parse_args():
     parser.add_argument(
         "--model_file",
         type=str,
-        default="models/d2_tf.pth",
+        default="weights/d2/d2_tf.pth",
         help="path to the full model",
     )
 
@@ -444,3 +444,20 @@ def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=3):
         maxIters=10000,
     )
     return H, inliers
+
+
+def rotate_image(image_path, angle):
+    # 读取图像
+    image = cv2.imread(image_path)
+
+    # 计算图像中心点
+    height, width = image.shape[:2]
+    center = (width / 2, height / 2)
+
+    # 构建旋转矩阵
+    rotation_matrix = cv2.getRotationMatrix2D(center, angle, 1.0)
+
+    # 执行旋转操作
+    rotated_image = cv2.warpAffine(image, rotation_matrix, (width, height))
+
+    return rotated_image
