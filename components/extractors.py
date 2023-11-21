@@ -3,7 +3,6 @@ import sys
 
 import cv2
 import numpy as np
-import scipy.misc
 import torch
 from PIL import Image
 
@@ -126,17 +125,16 @@ class ExtractSuperpoint(object):
 class ExtractD2Net:
     def __init__(self, config):
         use_cuda = torch.cuda.is_available()
-
+        self.model_path = config.model_path
         # Creating CNN model
-        self.model = D2Net(
-            model_file=rootPath / "weights/d2/d2_tf.pth", use_cuda=use_cuda
-        )
+        self.model = D2Net(model_file=rootPath / self.model_path, use_cuda=use_cuda)
         # model = D2Net(model_file="checkpoints/qxslab/qxs.18.pth", use_cuda=use_cuda)
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
 
         self.multiscale = False
         self.max_edge = 2500
         self.max_sum_edges = 5000
+        self.is_split = config.is_split
 
     def run(self, img_path, scales=[0.25, 0.50, 1.0], nfeatures=-1):
         image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
@@ -146,64 +144,95 @@ class ExtractD2Net:
             image = image[:, :, np.newaxis]
             image = np.repeat(image, 3, -1)
 
-        # Resize image to maximum size.
-        resized_image = image
+        if self.is_split:
+            h, w = image.shape[:2]
+            images = [
+                image[: h // 2, : w // 2],
+                image[: h // 2, w // 2 :],
+                image[h // 2 :, : w // 2],
+                image[h // 2 :, w // 2 :],
+            ]
+        else:
+            images = [image]
 
-        # 如果最大边大于self.max_edge，则调整大小
-        if max(resized_image.shape) > self.max_edge:
-            scale_factor = self.max_edge / max(resized_image.shape)
-            resized_image = resize_image_with_pil(resized_image, scale_factor)
+        keypoints_list = []
+        descriptors_list = []
+        for idx, image in enumerate(images):
+            # Resize image to maximum size.
+            resized_image = image
 
-        # 如果尺寸之和大于self.max_sum_edges，则调整大小
-        if sum(resized_image.shape[:2]) > self.max_sum_edges:
-            scale_factor = self.max_sum_edges / sum(resized_image.shape[:2])
-            resized_image = resize_image_with_pil(resized_image, scale_factor)
+            # 如果最大边大于self.max_edge，则调整大小
+            if max(resized_image.shape) > self.max_edge:
+                scale_factor = self.max_edge / max(resized_image.shape)
+                resized_image = resize_image_with_pil(resized_image, scale_factor)
 
-        # resize proportion
-        fact_i = image.shape[0] / resized_image.shape[0]
-        fact_j = image.shape[1] / resized_image.shape[1]
+            # 如果尺寸之和大于self.max_sum_edges，则调整大小
+            if sum(resized_image.shape[:2]) > self.max_sum_edges:
+                scale_factor = self.max_sum_edges / sum(resized_image.shape[:2])
+                resized_image = resize_image_with_pil(resized_image, scale_factor)
 
-        input_image = preprocess_image(resized_image, preprocessing="torch")
-        with torch.no_grad():
-            # Process image with D2-Net
-            if self.multiscale:
-                keypoints, scores, descriptors = process_multiscale(
-                    torch.tensor(
-                        input_image[np.newaxis, :, :, :].astype(np.float32),
-                        device=self.device,
-                    ),
-                    self.model,
-                    scales,
-                )
-            else:
-                keypoints, scores, descriptors = process_multiscale(
-                    torch.tensor(
-                        input_image[np.newaxis, :, :, :].astype(np.float32),
-                        device=self.device,
-                    ),
-                    self.model,
-                    scales=[1],
-                )
+            # resize proportion
+            fact_i = image.shape[0] / resized_image.shape[0]
+            fact_j = image.shape[1] / resized_image.shape[1]
 
-        # Input image coordinates
-        keypoints[:, 0] *= fact_i
-        keypoints[:, 1] *= fact_j
-        # i, j -> u, v
-        keypoints = keypoints[:, [1, 0, 2]]
+            input_image = preprocess_image(resized_image, preprocessing="torch")
+            with torch.no_grad():
+                # Process image with D2-Net
+                if self.multiscale:
+                    keypoints, scores, descriptors = process_multiscale(
+                        torch.tensor(
+                            input_image[np.newaxis, :, :, :].astype(np.float32),
+                            device=self.device,
+                        ),
+                        self.model,
+                        scales,
+                    )
+                else:
+                    keypoints, scores, descriptors = process_multiscale(
+                        torch.tensor(
+                            input_image[np.newaxis, :, :, :].astype(np.float32),
+                            device=self.device,
+                        ),
+                        self.model,
+                        scales=[1],
+                    )
 
-        if nfeatures != -1:
-            # 根据scores排序
-            scores2 = np.array([scores]).T
-            res = np.hstack((scores2, keypoints))
-            res = res[np.lexsort(-res[:, ::-1].T)]
+            # Input image coordinates
+            keypoints[:, 0] *= fact_i
+            keypoints[:, 1] *= fact_j
+            # i, j -> u, v
+            keypoints = keypoints[:, [1, 0, 2]]
 
-            res = np.hstack((res, descriptors))
-            # 取前几个
-            scores = res[0:nfeatures, 0].copy()
-            keypoints = res[0:nfeatures, 1:3].copy()
-            descriptors = res[0:nfeatures, 4:].copy()
-            del res
+            if nfeatures != -1:
+                # 根据scores排序
+                scores2 = np.array([scores]).T
+                res = np.hstack((scores2, keypoints))
+                res = res[np.lexsort(-res[:, ::-1].T)]
 
-        # keypoints+scores
-        keypoints = np.concatenate((keypoints[:, [0, 1]], np.array([scores]).T), axis=1)
-        return keypoints, descriptors
+                res = np.hstack((res, descriptors))
+                # 取前几个
+                scores = res[0:nfeatures, 0].copy()
+                keypoints = res[0:nfeatures, 1:3].copy()
+                descriptors = res[0:nfeatures, 4:].copy()
+                del res
+
+            # keypoints+scores
+            keypoints = np.concatenate(
+                (keypoints[:, [0, 1]], np.array([scores]).T), axis=1
+            )
+
+            # 如果是右半部分或下半部分的图像，对特征点进行平移
+            if self.is_split:
+                if idx == 1 or idx == 3:
+                    keypoints[:, 1] += w // 2
+                if idx == 2 or idx == 3:
+                    keypoints[:, 0] += h // 2
+
+            keypoints_list.append(keypoints)
+            descriptors_list.append(descriptors)
+
+        # 在返回之前，将keypoints_list和descriptors_list转换为N*2的格式
+        keypoints_array = np.vstack(keypoints_list)
+        descriptors_array = np.vstack(descriptors_list)
+
+        return keypoints_array, descriptors_array

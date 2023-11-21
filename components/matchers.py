@@ -156,7 +156,8 @@ class FLANN_Matcher:
 class BF_Matcher:
     def __init__(self, config):
         # self.ratio_threshold = config.ratio_threshold
-        pass
+        self.crossCheck = config.crossCheck
+        # pass
 
     def run(self, test_data):
         desc1, desc2, x1, x2 = (
@@ -165,7 +166,8 @@ class BF_Matcher:
             test_data["x1"],
             test_data["x2"],
         )
-        bf = cv2.BFMatcher()
+        # bf = cv2.BFMatcher(crossCheck=True)
+        bf = cv2.BFMatcher(crossCheck=self.crossCheck)
 
         matches = bf.match(desc1, desc2)
 

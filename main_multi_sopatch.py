@@ -1,7 +1,7 @@
 """统一所有方法,对一对图片进行配准测试
 
 Usage:
-    $ python main_multi_sopatch.py -m
+    $ our
 log-dir:
     log/multirun
 """
@@ -24,7 +24,7 @@ from lib.utils import pix2pix_RMSE
 @hydra.main(
     version_base=None,
     config_path="conf",
-    config_name="eval_sp_sgm",
+    config_name="eval_d2_bf",
 )
 def main(config: Config):
     log = logging.getLogger(__name__)
@@ -93,11 +93,12 @@ def main(config: Config):
     # %% 数据分析
     log.info(f"Dataset size:{len(imgfiles1)}")
     log.info(f"Success num:{success_num}")
-    log.info(f"Success rate:{success_num / len(imgfiles1)}")
-    log.info(f"NCM:{np.mean(mNCM)}")
-    log.info(f"CMR:{np.mean(mCMR)}")
-    log.info(f"RMSE:{np.mean(mRMSE)}")
-    log.info(f"Time:{end_time - start_time}s")
+    log.info(f"Success rate:{success_num / len(imgfiles1):.3f}")
+    log.info(f"NCM:{np.mean(mNCM):.1f}")
+    log.info(f"CMR:{np.mean(mCMR):.2f}")
+    log.info(f"RMSE:{np.mean(mRMSE):.2f}")
+    # 时间取整数
+    log.info(f"Time:{int(end_time - start_time):}s")
     # %% evaluation
     # show align image
     # img_align(img1, img2, H)
