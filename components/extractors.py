@@ -2,6 +2,8 @@ import os
 import sys
 
 import cv2
+import kornia as K
+import kornia.feature as KF
 import numpy as np
 import torch
 from PIL import Image
@@ -94,7 +96,7 @@ class ExtractSuperpoint(object):
         scale = 1
         if self.resize[0] != -1:
             img, scale = resize(img, self.resize)
-        with torch.no_grad():
+        with torch.inference_mode():
             result = self.superpoint_extractor(
                 torch.from_numpy(img / 255.0).float()[None, None].cuda()
             )
@@ -176,7 +178,7 @@ class ExtractD2Net:
             fact_j = image.shape[1] / resized_image.shape[1]
 
             input_image = preprocess_image(resized_image, preprocessing="torch")
-            with torch.no_grad():
+            with torch.inference_mode():
                 # Process image with D2-Net
                 if self.multiscale:
                     keypoints, scores, descriptors = process_multiscale(
@@ -236,3 +238,32 @@ class ExtractD2Net:
         descriptors_array = np.vstack(descriptors_list)
 
         return keypoints_array, descriptors_array
+
+
+class ExtractLoFTR:
+    def __init__(self, config):
+        self.pretrained = config.model
+        # pass
+
+    def load_torch_image(self, fname):
+        img = K.image_to_tensor(cv2.imread(fname), False).float() / 255.0
+        img = K.color.bgr_to_rgb(img)
+        return img
+
+    def run(self, img1_path, img2_path):
+        img1 = self.load_torch_image(img1_path)
+        img2 = self.load_torch_image(img2_path)
+
+        matcher = KF.LoFTR(pretrained=self.pretrained)
+        # matcher = KF.LoFTR(pretrained="outdoor")
+
+        input_dict = {
+            "image0": K.color.rgb_to_grayscale(img1),  # LofTR 只在灰度图上作用
+            "image1": K.color.rgb_to_grayscale(img2),
+        }
+        # 推理模式
+        with torch.inference_mode():
+            correspondences = matcher(input_dict)
+        mkpts0 = correspondences["keypoints0"].cpu().numpy()
+        mkpts1 = correspondences["keypoints1"].cpu().numpy()
+        return mkpts0, mkpts1

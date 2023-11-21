@@ -48,7 +48,7 @@ class GNN_Matcher(object):
             "desc1": torch.from_numpy(test_data["desc1"][np.newaxis]).cuda().float(),
             "desc2": torch.from_numpy(test_data["desc2"][np.newaxis]).cuda().float(),
         }
-        with torch.no_grad():
+        with torch.inference_mode():
             res = self.model(feed_data, test_mode=True)
             p = res["p"]
         index1, index2 = self.match_p(p[0, :-1, :-1])

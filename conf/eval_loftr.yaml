@@ -1,0 +1,18 @@
+defaults:
+  - extractor: loftr
+  - matcher: loftr
+  - ransac: magsacpp
+  - dataset: whu-sen-city
+  - _self_
+
+hydra:
+  sweeper:
+    params:
+      dataset: osdataset,sen1-2,whu-sen-city
+  sweep:
+    dir: log/multirun/${extractor.name}_${matcher.name}_${ransac.name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${dataset.name}
+  run:
+    dir: log/${extractor.name}_${matcher.name}_${ransac.name}
+  # job_logging: disabled
+  

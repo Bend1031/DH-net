@@ -24,6 +24,8 @@ def load_extractor(model_name, config):
         extractor = extractors.ExtractSuperpoint(config)
     elif model_name == "d2":
         extractor = extractors.ExtractD2Net(config)
+    elif model_name == "loftr":
+        extractor = extractors.ExtractLoFTR(config)
     else:
         raise NotImplementedError
     return extractor
