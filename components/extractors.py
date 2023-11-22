@@ -254,12 +254,12 @@ class ExtractLoFTR:
         img1 = self.load_torch_image(img1_path)
         img2 = self.load_torch_image(img2_path)
 
-        matcher = KF.LoFTR(pretrained=self.pretrained)
+        matcher = KF.LoFTR(pretrained=self.pretrained).eval().cuda()
         # matcher = KF.LoFTR(pretrained="outdoor")
 
         input_dict = {
-            "image0": K.color.rgb_to_grayscale(img1),  # LofTR 只在灰度图上作用
-            "image1": K.color.rgb_to_grayscale(img2),
+            "image0": K.color.rgb_to_grayscale(img1).cuda(),  # LofTR 只在灰度图上作用
+            "image1": K.color.rgb_to_grayscale(img2).cuda(),
         }
         # 推理模式
         with torch.inference_mode():
