@@ -267,3 +267,21 @@ class ExtractLoFTR:
         mkpts0 = correspondences["keypoints0"].cpu().numpy()
         mkpts1 = correspondences["keypoints1"].cpu().numpy()
         return mkpts0, mkpts1
+
+
+class ExtractDISK:
+    def __init__(self, config):
+        self.device = K.utils.get_cuda_device_if_available()
+        self.pretrained = config.checkpoint
+        self.num_features = config.num_features
+        self.disk = K.feature.DISK.from_pretrained(self.pretrained).to(self.device)
+
+    def run(self, img_path):
+        img = K.io.load_image(img_path, K.io.ImageLoadType.RGB32, device=self.device)[
+            None, ...
+        ]
+        # 推理模式
+        with torch.inference_mode():
+            [features] = self.disk(img, self.num_features, pad_if_not_divisible=True)
+            kps, descs = features.keypoints, features.descriptors
+        return kps, descs

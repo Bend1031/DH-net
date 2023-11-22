@@ -26,6 +26,8 @@ def load_extractor(model_name, config):
         extractor = extractors.ExtractD2Net(config)
     elif model_name == "loftr":
         extractor = extractors.ExtractLoFTR(config)
+    elif model_name == "disk":
+        extractor = extractors.ExtractDISK(config)
     else:
         raise NotImplementedError
     return extractor
@@ -42,6 +44,8 @@ def load_matcher(model_name, config):
         matcher = matchers.FLANN_Matcher(config)
     elif model_name == "BF":
         matcher = matchers.BF_Matcher(config)
+    elif model_name == "LightGlue":
+        matcher = matchers.LightGlue_Matcher(config)
     else:
         raise NotImplementedError
     return matcher

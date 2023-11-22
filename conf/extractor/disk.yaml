@@ -1,0 +1,4 @@
+name: disk
+checkpoint: depth
+num_features: 2048
+# checkpoint: epipolar

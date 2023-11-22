@@ -3,6 +3,8 @@ import sys
 from collections import OrderedDict, namedtuple
 
 import cv2  # type:ignore
+import kornia as K
+import kornia.feature as KF
 import numpy as np
 import torch
 
@@ -166,7 +168,6 @@ class BF_Matcher:
             test_data["x1"],
             test_data["x2"],
         )
-        # bf = cv2.BFMatcher(crossCheck=True)
         bf = cv2.BFMatcher(crossCheck=self.crossCheck)
 
         matches = bf.match(desc1, desc2)
@@ -187,4 +188,34 @@ class BF_Matcher:
         corr1 = np.array(locations_1_to_use)
         corr2 = np.array(locations_2_to_use)
 
+        return corr1, corr2
+
+
+class LightGlue_Matcher:
+    def __init__(self, config):
+        self.device = K.utils.get_cuda_device_if_available()
+        self.lightglue = K.feature.LightGlueMatcher("disk").to(self.device)
+
+    def run(self, test_data):
+        desc1, desc2, kps1, kps2 = (
+            test_data["desc1"],
+            test_data["desc2"],
+            test_data["x1"],
+            test_data["x2"],
+        )
+        lafs1 = KF.laf_from_center_scale_ori(
+            kps1[None], torch.ones(1, len(kps1), 1, 1, device=self.device)
+        )
+        lafs2 = KF.laf_from_center_scale_ori(
+            kps2[None], torch.ones(1, len(kps2), 1, 1, device=self.device)
+        )
+        with torch.inference_mode():
+            dists, idxs = self.lightglue(desc1, desc2, lafs1, lafs2)
+
+        corr1 = kps1[idxs[:, 0]]
+        corr2 = kps2[idxs[:, 1]]
+
+        # tensor to numpy
+        corr1 = corr1.detach().cpu().numpy()
+        corr2 = corr2.detach().cpu().numpy()
         return corr1, corr2

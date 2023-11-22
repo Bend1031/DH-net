@@ -1,7 +1,7 @@
 """统一所有方法,对一对图片进行配准测试
 
 Usage:
-    $ our
+    $ python main_multi_sopatch.py -m
 log-dir:
     log/multirun
 """
@@ -32,7 +32,7 @@ def main(config: Config):
     dataset = config.dataset.dataset_path
     imgfiles1 = glob.glob(str(rootPath / dataset) + r"/test/opt/*.png")
     imgfiles2 = glob.glob(str(rootPath / dataset) + r"/test/sar/*.png")
-    log.info("\n")
+
     log.info(f"Dataset:{dataset}")
 
     # %% load component
@@ -99,28 +99,7 @@ def main(config: Config):
     log.info(f"RMSE:{np.mean(mRMSE):.2f}")
     # 时间取整数
     log.info(f"Time:{int(end_time - start_time):}s")
-    # %% evaluation
-    # show align image
-    # img_align(img1, img2, H)
-
-    # visualize match
-    # display = evaluation_utils.draw_match(
-    #     img1,
-    #     img2,
-    #     corr1,
-    #     corr2,
-    #     # inlier=bool_list,
-    # )
-
-    # cv2.imshow("match", display)
-    # cv2.waitKey(0)
-
-    # cv2.imwrite(
-    #     f"{config.extractor.name}_{config.matcher.name}_{config.ransac.name}.png",
-    #     display,
-    # )
-
-    # log.info("match result saved in match.png")
+    log.info("\n")
 
 
 if __name__ == "__main__":
