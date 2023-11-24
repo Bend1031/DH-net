@@ -17,12 +17,12 @@ for jsonfile in jsonlist:
 
 color_dict = {
     "SP-SG": "red",
-    "ours": "green",
+    "D2-BF": "green",
     "SP-SGM": "orange",
     "CMM": "blue",
     "D2": "purple",
     "DISK-LightGlue": "cyan",
-    "RootSIFT": "brown",
+    "SIFT-NN": "brown",
     # 添加更多方法名和颜色的映射
 }
 

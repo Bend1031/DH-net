@@ -22,6 +22,8 @@ from components import load_component
 from lib.rootpath import rootPath
 from lib.utils import pix2pix_RMSE
 
+from .utils.evaluation_utils import estimate_homo
+
 
 @hydra.main(
     version_base=None,
@@ -87,21 +89,7 @@ def main(config):
         if len(corr1) <= 4 or len(corr2) <= 4:
             continue
         # %%evaluation homography estimation
-        h, w = img1.shape[:2]
-        corners = np.array(
-            [[0, 0, 1], [0, h - 1, 1], [w - 1, 0, 1], [w - 1, h - 1, 1]]
-        )
-        # h_gt 为单位阵
-        H_gt = np.eye(3)
-        real_warped_corners = np.dot(corners, np.transpose(H_gt))
-        real_warped_corners = (
-            real_warped_corners[:, :2] / real_warped_corners[:, 2:]
-        )
-        warped_corners = np.dot(corners, np.transpose(H_pred))
-        warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
-        corner_dist = np.mean(
-            np.linalg.norm(real_warped_corners - warped_corners, axis=1)
-        )
+        corner_dist = estimate_homo(img1, H_pred)
         dists_homo.append(corner_dist)
         # %%evaluation
 
@@ -115,20 +103,31 @@ def main(config):
                 mERR[key] = mERR.get(key, 0) + err[key]
 
     thres = [1, 3, 5, 10]
+
     homo_acc = np.mean(
         [[float(dist <= t) for t in thres] for dist in dists_homo], axis=0
     )
     homo_acc = {t: acc for t, acc in zip(thres, homo_acc)}
+    homo_acc = round(homo_acc, 3)
     print(homo_acc)
 
     for key in mERR:
         mERR[key] /= success_num
+
+    end_time = time.perf_counter()
+
+    # %% 数据分析
     # save err
     err = {
         "method": f"{method.name}",
         "dataset": f"{config.dataset.name}",
         "MMA": mERR,
         "homo_acc": homo_acc,
+        "success_rate": success_num / len(imgfiles1),
+        "NCM": f"{np.mean(mNCM):.1f}",
+        "CMR": f"{np.mean(mCMR):.2f}",
+        "RMSE": f"{np.mean(mRMSE):.2f}",
+        "Time": f"{int(end_time - start_time):}s",
     }
     with open(
         f"result/{method.name}_{config.dataset.name}.json",
@@ -136,9 +135,6 @@ def main(config):
     ) as f:
         json.dump(err, f)
 
-    end_time = time.perf_counter()
-
-    # %% 数据分析
     log.info(f"Method:{method.name}")
     log.info(f"Dataset:{config.dataset.name}")
     log.info(f"Dataset size:{len(imgfiles1)}")

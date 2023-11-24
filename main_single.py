@@ -61,7 +61,7 @@ def main(config):
 
     # %% matcher
     matcher = load_component("matcher", method.matcher.name, method.matcher)
-    test_data = {
+    kpts_data = {
         "x1": kpt1,
         "x2": kpt2,
         "desc1": desc1,
@@ -71,7 +71,7 @@ def main(config):
     }
     # 匹配点的坐标 (num_keypoints, 2), (num_keypoints, 2)
     match_start = time.perf_counter()
-    corr1, corr2 = matcher.run(test_data)
+    corr1, corr2 = matcher.run(kpts_data)
     match_end = time.perf_counter()
     log.info(
         f"{method.matcher.name}: match {len(corr1)} points,match time: {match_end - match_start:.2f}s"
@@ -90,7 +90,8 @@ def main(config):
 
     mERR = {}
     for key in err:
-        mERR[key] = mERR.get(key, 0) + err[key]
+        mERR[key] = mERR.get(key, 0) + round(err[key], 3)
+
     print(mERR)
     # %% 数据分析
     log.info(f"Method:{method.name}")
@@ -103,24 +104,23 @@ def main(config):
     # img_align(img1, img2, H)
 
     # # visualize match
-    display = evaluation_utils.draw_match(
-        img1,
-        img2,
-        corr1,
-        corr2,
-        inlier=bool_list,
-        radius1=3,
-        radius2=3,
-    )
+    # display = evaluation_utils.draw_match(
+    #     img1,
+    #     img2,
+    #     corr1,
+    #     corr2,
+    #     inlier=bool_list,
+    #     radius1=3,
+    #     radius2=3,
+    # )
 
-    cv2.imshow("match", display)
-    cv2.waitKey(0)
+    # cv2.imshow("match", display)
+    # cv2.waitKey(0)
 
-
-# cv2.imwrite(
-#     f"{config.extractor.name}_{config.matcher.name}_{config.ransac.name}.png",
-#     display,
-# )
+    # cv2.imwrite(
+    #     f"{method.name}.png",
+    #     display,
+    # )
 
 
 if __name__ == "__main__":
