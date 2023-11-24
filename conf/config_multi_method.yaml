@@ -1,0 +1,16 @@
+defaults:
+  - method: d2
+  - _self_
+
+hydra:
+  sweeper:
+    params:
+      method: glob(*)
+      method/dataset: osdataset,sen1-2,whu-sen-city
+      # method/dataset: testdataset
+  sweep:
+    dir: log/multirun/${method.name}/${now:%Y-%m-%d_%H-%M-%S}
+    subdir: ${method.dataset.name}
+  run:
+    dir: log/${method.name}
+  

@@ -55,7 +55,7 @@ def cnn_feature_extract(image, scales=[0.25, 0.50, 1.0], nfeatures=1000):
     fact_j = image.shape[1] / resized_image.shape[1]
 
     input_image = preprocess_image(resized_image, preprocessing="torch")
-    with torch.no_grad():
+    with torch.inference_mode():
         # Process image with D2-Net
         if multiscale:
             keypoints, scores, descriptors = process_multiscale(

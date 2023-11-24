@@ -20,6 +20,7 @@ class TrainConfig:
 
 @dataclass
 class Dataset:
+    name: str
     dataset_path: str
     checkpoint_directory: str
     checkpoint_prefix: str
@@ -57,7 +58,10 @@ class RansacConfig:
 
 
 @dataclass
-class Config:
+class MethodConfig:
+    extractor: ExtractorConfig
+    matcher: MatcherConfig
+    ransac: RansacConfig
     dataset: Dataset
     model_file: str
     preprocessing: str
@@ -65,6 +69,13 @@ class Config:
     log: LogConfig
     plot: bool
 
-    extractor: ExtractorConfig
-    matcher: MatcherConfig
-    ransac: RansacConfig
+
+@dataclass
+class Config:
+    method: MethodConfig
+    dataset: Dataset
+    model_file: str
+    preprocessing: str
+    train: TrainConfig
+    log: LogConfig
+    plot: bool

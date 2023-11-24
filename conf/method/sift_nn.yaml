@@ -1,10 +1,10 @@
 defaults:
-  - extractor: d2
-  - matcher: bf
-  - ransac: magsacpp
-  - dataset: whu-sen-city
+  - extractor: root
+  - matcher: nn
+  - ransac: ransac
+  - dataset: osdataset
   - _self_
-
+name: SIFT-NN
 hydra:
   sweeper:
     params:

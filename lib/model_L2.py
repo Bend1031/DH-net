@@ -244,7 +244,7 @@ class MulDet(nn.Module):
 
     def peakiness_score(self, inputs, ksize=3, need_norm=True, dilation=1):
         if need_norm:
-            with torch.no_grad():
+            with torch.inference_mode():
                 instance_max = torch.max(inputs)
                 inputs = inputs / instance_max
 

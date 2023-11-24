@@ -7,6 +7,7 @@ log-dir:
 """
 
 import glob
+import json
 import logging
 import time
 
@@ -24,11 +25,12 @@ from lib.utils import pix2pix_RMSE
 @hydra.main(
     version_base=None,
     config_path="conf",
-    config_name="eval_d2_bf",
+    config_name="config_multi_method",
 )
-def main(config: Config):
+def main(config_: Config):
     log = logging.getLogger(__name__)
     # 读取图片路径
+    config = config_.method
     dataset = config.dataset.dataset_path
     imgfiles1 = glob.glob(str(rootPath / dataset) + r"/test/opt/*.png")
     imgfiles2 = glob.glob(str(rootPath / dataset) + r"/test/sar/*.png")
@@ -43,24 +45,22 @@ def main(config: Config):
     mRMSE = []
     mNCM = []
     mCMR = []
+    mERR = {}
     success_num = 0
 
     start_time = time.perf_counter()
+
     for i in tqdm(range(len(imgfiles1))):
-        # if i == 635:
-        #     continue
         img1_path = imgfiles1[i]
         img2_path = imgfiles2[i]
 
-        img1 = cv2.imread(img1_path)
-        img2 = cv2.imread(img2_path)
+        img1, img2 = cv2.imread(img1_path), cv2.imread(img2_path)
 
         # (width, height)
         size1, size2 = np.flip(np.asarray(img1.shape[:2])), np.flip(
             np.asarray(img2.shape[:2])
         )
         # %% extractor提取特征点和描述子
-        # (num_keypoints, 3):(x,y,score) , (num_keypoints, 128)
         kpt1, desc1 = extractor.run(img1_path)
         kpt2, desc2 = extractor.run(img2_path)
 
@@ -82,12 +82,30 @@ def main(config: Config):
         if len(corr1) <= 4 or len(corr2) <= 4:
             continue
         # %%evaluation
-        RMSE, NCM, CMR, bool_list = pix2pix_RMSE(corr1, corr2)
+
+        RMSE, NCM, CMR, bool_list, err = pix2pix_RMSE(corr1, corr2)
         if NCM >= 5:
             success_num += 1
             mNCM.append(NCM)
             mCMR.append(CMR)
             mRMSE.append(RMSE)
+            for key in err:
+                mERR[key] = mERR.get(key, 0) + err[key]
+
+    for key in mERR:
+        mERR[key] /= success_num
+    # save err
+    err = {
+        "method": f"{config.extractor.name}_{config.matcher.name}_{config.ransac.name}",
+        "dataset": f"{config.dataset.name}",
+        "err": mERR,
+    }
+    with open(
+        f"result/{config.extractor.name}_{config.matcher.name}_{config.ransac.name}_{config.dataset.name}.json",
+        "w",
+    ) as f:
+        json.dump(err, f)
+
     end_time = time.perf_counter()
 
     # %% 数据分析
@@ -97,7 +115,6 @@ def main(config: Config):
     log.info(f"NCM:{np.mean(mNCM):.1f}")
     log.info(f"CMR:{np.mean(mCMR):.2f}")
     log.info(f"RMSE:{np.mean(mRMSE):.2f}")
-    # 时间取整数
     log.info(f"Time:{int(end_time - start_time):}s")
     log.info("\n")
 

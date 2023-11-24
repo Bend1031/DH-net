@@ -39,6 +39,7 @@ def loss_function(
 
         # Network output
         dense_features1 = output["dense_features1"][idx_in_batch]
+        #512,64,64
         c, h1, w1 = dense_features1.size()
         scores1 = output["scores1"][idx_in_batch].view(-1)
 
@@ -87,6 +88,7 @@ def loss_function(
         descriptors2 = F.normalize(
             dense_features2[:, fmap_pos2[0, :], fmap_pos2[1, :]], dim=0
         )
+        # 4096
         positive_distance = (
             2
             - 2

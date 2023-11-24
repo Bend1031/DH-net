@@ -174,7 +174,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description="Training script")
 
     parser.add_argument(
-        "--dataset_path", type=str, required=True, help="path to the dataset"
+        "--dataset_path", type=str, required=False, help="path to the dataset"
     )
 
     parser.add_argument(
@@ -191,7 +191,7 @@ def parse_args():
     )
 
     parser.add_argument(
-        "--num_epochs", type=int, default=10, help="number of training epochs"
+        "--num_epochs", type=int, default=1, help="number of training epochs"
     )
     parser.add_argument("--lr", type=float, default=1e-3, help="initial learning rate")
     parser.add_argument("--batch_size", type=int, default=1, help="batch size")
@@ -302,6 +302,7 @@ def flann_match(kps_left, kps_right, des_left, des_right, ratio_threshold=0.99):
 
 
 def BruteForce(kps_left, kps_right, des_left, des_right):
+    # 默认 cv2.NORM_L2
     bf = cv2.BFMatcher()
     # matches = bf.knnMatch(des_left, des_right, k=2)
     matches = bf.match(des_left, des_right)
@@ -412,6 +413,10 @@ def pix2pix_RMSE(src_pts, dst_pts, threshold=3):
     # 计算对应点之间的距离
     distances = np.linalg.norm(points1 - points2, axis=1)
 
+    err = {}
+    for thr in range(1, 11):
+        err[thr] = np.mean(distances <= thr)
+
     # 根据阈值剔除大于阈值的点
     filter_idx = np.where(distances < threshold)
     NCM = len(filter_idx[0])
@@ -431,7 +436,7 @@ def pix2pix_RMSE(src_pts, dst_pts, threshold=3):
 
     # print("对应点之间的距离:", filter_distance)
     # print(f"RMSE: {rmse:.2f}")
-    return RMSE, NCM, CMR, bool_list
+    return RMSE, NCM, CMR, bool_list, err
 
 
 def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=3):

@@ -1,5 +1,6 @@
 import cv2
 import numpy as np
+from matplotlib import pyplot as plt
 
 
 def flann(kps_left, des_left, kps_right, des_right):
@@ -108,3 +109,41 @@ def checkboard(I1, I2, n):
                 out_image[h:h1, w:w1, :] = I2[h:h1, w:w1, :]
 
     return out_image
+
+
+def plot_mma(err):
+    """绘制MMA曲线"""
+    methods = ["d2_bf"]
+    names = ["D2-BF"]
+    colors = ["black"]
+    linestyles = ["-"]
+
+    plt_lim = [1, 10]
+    plt_rng = np.arange(plt_lim[0], plt_lim[1] + 1)
+
+    plt.rc("axes", titlesize=25)
+    plt.rc("axes", labelsize=25)
+
+    plt.figure(figsize=(15, 5))
+
+    # plt.subplot(1, 3, 1)
+    for method, name, color, ls in zip(methods, names, colors, linestyles):
+        plt.plot(
+            plt_rng,
+            [(err[thr]) for thr in plt_rng],
+            color=color,
+            ls=ls,
+            linewidth=3,
+            label=name,
+        )
+    plt.title("Overall")
+    plt.xlim(plt_lim)
+    plt.xticks(plt_rng)
+    plt.xlabel("threshold [px]")
+    plt.ylabel("MMA")
+    plt.ylim([0, 1])
+    plt.grid()
+    plt.tick_params(axis="both", which="major", labelsize=20)
+    plt.legend()
+    plt.show()
+    plt.savefig("MMA.png", bbox_inches="tight", dpi=300)

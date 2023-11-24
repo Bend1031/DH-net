@@ -1,9 +1,10 @@
 defaults:
   - extractor: d2
-  - matcher: bf
-  - ransac: magsacpp
+  - matcher: flann
+  - ransac: ransac
   - dataset: whu-sen-city
   - _self_
+name: CMM
 
 hydra:
   sweeper:

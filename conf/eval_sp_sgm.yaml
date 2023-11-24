@@ -2,7 +2,7 @@ defaults:
   - extractor: sp
   - matcher: sgm
   - ransac: magsacpp
-  - dataset: sen1-2
+  - dataset: whu-sen-city
   - _self_
 
 # - matcher:

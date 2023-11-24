@@ -1,10 +1,10 @@
 defaults:
-  - extractor: d2
-  - matcher: bf
+  - extractor: sp
+  - matcher: sg
   - ransac: magsacpp
-  - dataset: whu-sen-city
+  - dataset: osdataset
   - _self_
-
+name: SP-SG
 hydra:
   sweeper:
     params:
@@ -14,3 +14,5 @@ hydra:
     subdir: ${dataset.name}
   run:
     dir: log/${extractor.name}_${matcher.name}_${ransac.name}
+  # job_logging: disabled
+  
