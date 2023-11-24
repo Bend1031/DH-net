@@ -26,8 +26,8 @@ from lib.utils import pix2pix_RMSE
 @hydra.main(
     version_base=None,
     config_path="conf",
-    # config_name="config_multi_method.yaml",
-    config_name="test",
+    config_name="config_multi_method.yaml",
+    # config_name="test",
 )
 def main(config):
     log = logging.getLogger(__name__)
@@ -66,6 +66,8 @@ def main(config):
         # %% extractor提取特征点和描述子
         kpt1, desc1 = extractor.run(img1_path)
         kpt2, desc2 = extractor.run(img2_path)
+        if len(kpt1) <= 4 or len(kpt2) <= 4:
+            continue
 
         # %% matcher
         test_data = {
@@ -85,29 +87,22 @@ def main(config):
         if len(corr1) <= 4 or len(corr2) <= 4:
             continue
         # %%evaluation homography estimation
-
-        if H_pred is None:
-            corner_dist = np.nan
-            irat = 0
-            h_failed += 1
-            inliers = []
-        else:
-            h, w = img1.shape[:2]
-            corners = np.array(
-                [[0, 0, 1], [0, h - 1, 1], [w - 1, 0, 1], [w - 1, h - 1, 1]]
-            )
-            # h_gt 为单位阵
-            H_gt = np.eye(3)
-            real_warped_corners = np.dot(corners, np.transpose(H_gt))
-            real_warped_corners = (
-                real_warped_corners[:, :2] / real_warped_corners[:, 2:]
-            )
-            warped_corners = np.dot(corners, np.transpose(H_pred))
-            warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
-            corner_dist = np.mean(
-                np.linalg.norm(real_warped_corners - warped_corners, axis=1)
-            )
-            dists_homo.append(corner_dist)
+        h, w = img1.shape[:2]
+        corners = np.array(
+            [[0, 0, 1], [0, h - 1, 1], [w - 1, 0, 1], [w - 1, h - 1, 1]]
+        )
+        # h_gt 为单位阵
+        H_gt = np.eye(3)
+        real_warped_corners = np.dot(corners, np.transpose(H_gt))
+        real_warped_corners = (
+            real_warped_corners[:, :2] / real_warped_corners[:, 2:]
+        )
+        warped_corners = np.dot(corners, np.transpose(H_pred))
+        warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
+        corner_dist = np.mean(
+            np.linalg.norm(real_warped_corners - warped_corners, axis=1)
+        )
+        dists_homo.append(corner_dist)
         # %%evaluation
 
         RMSE, NCM, CMR, bool_list, err = pix2pix_RMSE(corr1, corr2)
@@ -132,7 +127,7 @@ def main(config):
     err = {
         "method": f"{method.name}",
         "dataset": f"{config.dataset.name}",
-        "err": mERR,
+        "MMA": mERR,
         "homo_acc": homo_acc,
     }
     with open(

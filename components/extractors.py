@@ -219,9 +219,9 @@ class ExtractD2Net:
                 del res
 
             # keypoints+scores
-            keypoints = np.concatenate(
-                (keypoints[:, [0, 1]], np.array([scores]).T), axis=1
-            )
+            # keypoints = np.concatenate(
+            #     (keypoints[:, [0, 1]], np.array([scores]).T), axis=1
+            # )
 
             # 如果是右半部分或下半部分的图像，对特征点进行平移
             if self.is_split:
@@ -272,16 +272,17 @@ class ExtractLoFTR:
 class ExtractDISK:
     def __init__(self, config):
         self.device = K.utils.get_cuda_device_if_available()
-        self.pretrained = config.checkpoint
         self.num_features = config.num_features
-        self.disk = K.feature.DISK.from_pretrained(self.pretrained).to(self.device)
+        self.disk = K.feature.DISK.from_pretrained(config.checkpoint).to(self.device)
 
     def run(self, img_path):
         img = K.io.load_image(img_path, K.io.ImageLoadType.RGB32, device=self.device)[
             None, ...
         ]
+
         # 推理模式
         with torch.inference_mode():
             [features] = self.disk(img, self.num_features, pad_if_not_divisible=True)
-            kps, descs = features.keypoints, features.descriptors
-        return kps, descs
+
+        # 直接在返回语句中返回关键点和描述符
+        return features.keypoints, features.descriptors

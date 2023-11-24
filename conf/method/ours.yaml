@@ -1,8 +1,8 @@
 defaults:
   - extractor: d2
-  # - override extractor/is_split: True
   - matcher: bf
   - ransac: magsacpp
   - _self_
-extractor/is_split: True
+extractor:
+  is_split: True
 name: D2-BF
