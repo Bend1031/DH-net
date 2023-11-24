@@ -2,7 +2,6 @@ defaults:
   - extractor: root
   - matcher: nn
   - ransac: ransac
-  - dataset: osdataset
   - _self_
 name: SIFT-NN
 hydra:

@@ -2,7 +2,6 @@ defaults:
   - extractor: sp
   - matcher: sgm
   - ransac: magsacpp
-  - dataset: sen1-2
   - _self_
 name: SP-SGM
 # - matcher:

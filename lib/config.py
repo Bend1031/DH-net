@@ -73,9 +73,9 @@ class MethodConfig:
 @dataclass
 class Config:
     method: MethodConfig
-    dataset: Dataset
-    model_file: str
-    preprocessing: str
-    train: TrainConfig
-    log: LogConfig
-    plot: bool
+    # dataset: Dataset
+    # model_file: str
+    # preprocessing: str
+    # train: TrainConfig
+    # log: LogConfig
+    # plot: bool

@@ -2,7 +2,6 @@ defaults:
   - extractor: d2
   - matcher: nn
   - ransac: ransac
-  - dataset: whu-sen-city
   - _self_
 
 name: D2

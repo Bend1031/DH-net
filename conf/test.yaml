@@ -1,12 +1,14 @@
 defaults:
-  - method: ours
-  - dataset: whu-sen-city
+  - method: disk_lg
+  # - override method/dataset: testdataset
   - _self_
+  - dataset: testdataset
 hydra:
   sweeper:
     params:
       method: glob(*)
-      dataset: osdataset,sen1-2,whu-sen-city
+      # method/dataset: osdataset,sen1-2,whu-sen-city
+      # +dataset: testdataset
   sweep:
     dir: log/multirun/${method.name}/${now:%Y-%m-%d_%H-%M-%S}
     subdir: ${dataset.name}

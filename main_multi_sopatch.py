@@ -17,7 +17,8 @@ import numpy as np
 from tqdm import tqdm
 
 from components import load_component
-from lib.config import Config
+
+# from lib.config import Config
 from lib.rootpath import rootPath
 from lib.utils import pix2pix_RMSE
 
@@ -25,29 +26,31 @@ from lib.utils import pix2pix_RMSE
 @hydra.main(
     version_base=None,
     config_path="conf",
-    config_name="config_multi_method",
+    # config_name="config_multi_method.yaml",
+    config_name="test",
 )
-def main(config_: Config):
+def main(config):
     log = logging.getLogger(__name__)
     # 读取图片路径
-    config = config_.method
+
+    method = config.method
+
     dataset = config.dataset.dataset_path
     imgfiles1 = glob.glob(str(rootPath / dataset) + r"/test/opt/*.png")
     imgfiles2 = glob.glob(str(rootPath / dataset) + r"/test/sar/*.png")
 
-    log.info(f"Dataset:{dataset}")
-
     # %% load component
-    extractor = load_component("extractor", config.extractor.name, config.extractor)
-    matcher = load_component("matcher", config.matcher.name, config.matcher)
-    ransac = load_component("ransac", config.ransac.name, config.ransac)
+    extractor = load_component("extractor", method.extractor.name, method.extractor)
+    matcher = load_component("matcher", method.matcher.name, method.matcher)
+    ransac = load_component("ransac", method.ransac.name, method.ransac)
 
     mRMSE = []
     mNCM = []
     mCMR = []
     mERR = {}
     success_num = 0
-
+    h_failed = 0
+    dists_homo = []
     start_time = time.perf_counter()
 
     for i in tqdm(range(len(imgfiles1))):
@@ -78,9 +81,33 @@ def main(config_: Config):
             continue
 
         # %% ransac
-        H, corr1, corr2 = ransac.run(corr1, corr2)
+        H_pred, corr1, corr2 = ransac.run(corr1, corr2)
         if len(corr1) <= 4 or len(corr2) <= 4:
             continue
+        # %%evaluation homography estimation
+
+        if H_pred is None:
+            corner_dist = np.nan
+            irat = 0
+            h_failed += 1
+            inliers = []
+        else:
+            h, w = img1.shape[:2]
+            corners = np.array(
+                [[0, 0, 1], [0, h - 1, 1], [w - 1, 0, 1], [w - 1, h - 1, 1]]
+            )
+            # h_gt 为单位阵
+            H_gt = np.eye(3)
+            real_warped_corners = np.dot(corners, np.transpose(H_gt))
+            real_warped_corners = (
+                real_warped_corners[:, :2] / real_warped_corners[:, 2:]
+            )
+            warped_corners = np.dot(corners, np.transpose(H_pred))
+            warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
+            corner_dist = np.mean(
+                np.linalg.norm(real_warped_corners - warped_corners, axis=1)
+            )
+            dists_homo.append(corner_dist)
         # %%evaluation
 
         RMSE, NCM, CMR, bool_list, err = pix2pix_RMSE(corr1, corr2)
@@ -92,16 +119,24 @@ def main(config_: Config):
             for key in err:
                 mERR[key] = mERR.get(key, 0) + err[key]
 
+    thres = [1, 3, 5, 10]
+    homo_acc = np.mean(
+        [[float(dist <= t) for t in thres] for dist in dists_homo], axis=0
+    )
+    homo_acc = {t: acc for t, acc in zip(thres, homo_acc)}
+    print(homo_acc)
+
     for key in mERR:
         mERR[key] /= success_num
     # save err
     err = {
-        "method": f"{config.extractor.name}_{config.matcher.name}_{config.ransac.name}",
+        "method": f"{method.name}",
         "dataset": f"{config.dataset.name}",
         "err": mERR,
+        "homo_acc": homo_acc,
     }
     with open(
-        f"result/{config.extractor.name}_{config.matcher.name}_{config.ransac.name}_{config.dataset.name}.json",
+        f"result/{method.name}_{config.dataset.name}.json",
         "w",
     ) as f:
         json.dump(err, f)
@@ -109,6 +144,8 @@ def main(config_: Config):
     end_time = time.perf_counter()
 
     # %% 数据分析
+    log.info(f"Method:{method.name}")
+    log.info(f"Dataset:{config.dataset.name}")
     log.info(f"Dataset size:{len(imgfiles1)}")
     log.info(f"Success num:{success_num}")
     log.info(f"Success rate:{success_num / len(imgfiles1):.3f}")
