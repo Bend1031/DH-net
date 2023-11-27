@@ -154,7 +154,6 @@ def estimate_homo(img1, H_pred):
         H_pred (numpy.ndarray): The predicted homography matrix.
 
     Returns:
-        float: The average corner distance.
     """
     h, w = img1.shape[:2]
     corners = np.array([[0, 0, 1], [0, h - 1, 1], [w - 1, 0, 1], [w - 1, h - 1, 1]])
@@ -163,8 +162,11 @@ def estimate_homo(img1, H_pred):
     real_warped_corners = real_warped_corners[:, :2] / real_warped_corners[:, 2:]
     warped_corners = np.dot(corners, np.transpose(H_pred))
     warped_corners = warped_corners[:, :2] / warped_corners[:, 2:]
-    corner_dist = np.mean(np.linalg.norm(real_warped_corners - warped_corners, axis=1))
-    # 保留三位小数
-    corner_dist = round(corner_dist, 3)
+    corner_dist = np.linalg.norm(real_warped_corners - warped_corners, axis=1)
 
-    return corner_dist
+
+    homo_mma = {}
+    for thr in range(1, 11):
+        homo_mma[thr] = np.mean(corner_dist <= thr)
+
+    return homo_mma

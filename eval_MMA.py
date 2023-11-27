@@ -22,7 +22,7 @@ color_dict = {
     "CMM": "blue",
     "D2": "purple",
     "DISK-LightGlue": "cyan",
-    "SIFT-NN": "brown",
+    "SIFT": "brown",
     # 添加更多方法名和颜色的映射
 }
 
@@ -31,101 +31,107 @@ linestyle_dict = {
     "d2_BF_magsacpp": "-",
     # 添加更多方法名和颜色的映射
 }
-# 设置全局参数
-plt_lim = [1, 10]
-plt_rng = np.arange(plt_lim[0], plt_lim[1] + 1)
-plt.rc("axes", titlesize=25)
-plt.rc("axes", labelsize=25)
 
-# 创建子图
-plt.figure(figsize=(15, 5))
+keys = ["corr_mma", "ransac_mma", "homo_mma"]
 
-plt.subplot(1, 3, 1)
-for i, err in enumerate(err_list):
-    """绘制MMA曲线"""
-    dataset = err["dataset"]
-    if dataset == "osdataset":
-        name = err["method"]
-        ls = linestyle_dict.get(name, "-")
-        color = color_dict.get(name, "black")
-        error = err["err"]
-        if error == {}:
-            continue
-        plt.plot(
-            plt_rng,
-            [error[str(thr)] for thr in plt_rng],
-            color=color,
-            ls=ls,
-            linewidth=3,
-            label=name,
-        )
-plt.title("osdataset")
-plt.xlim(plt_lim)
-plt.xticks(plt_rng)
-plt.ylabel("MMA")
-plt.ylim([0, 1])
-plt.grid()
-plt.tick_params(axis="both", which="major", labelsize=20)
-plt.legend()
+for key in keys:
+    # 设置全局参数
+    plt_lim = [1, 10]
+    plt_rng = np.arange(plt_lim[0], plt_lim[1] + 1)
+    plt.rc("axes", titlesize=25)
+    plt.rc("axes", labelsize=25)
 
-plt.subplot(1, 3, 2)
-for i, err in enumerate(err_list):
-    """绘制MMA曲线"""
-    dataset = err["dataset"]
-    if dataset == "sen1-2":
-        name = err["method"]
-        ls = linestyle_dict.get(name, "-")
-        color = color_dict.get(name, "black")
-        error = err["err"]
-        if error == {}:
-            continue
-        plt.plot(
-            plt_rng,
-            [error[str(thr)] for thr in plt_rng],
-            color=color,
-            ls=ls,
-            linewidth=3,
-            label=name,
-        )
-plt.title("sen1-2")
-plt.xlabel("threshold [px]")
-plt.xlim(plt_lim)
-plt.xticks(plt_rng)
-plt.ylim([0, 1])
-plt.gca().axes.set_yticklabels([])
-plt.grid()
-plt.tick_params(axis="both", which="major", labelsize=20)
-plt.legend()
+    # 创建子图
+    plt.figure(figsize=(15, 5))
 
-plt.subplot(1, 3, 3)
-for i, err in enumerate(err_list):
-    """绘制MMA曲线"""
-    dataset = err["dataset"]
-    if dataset == "whu-sen-city":
-        name = err["method"]
-        ls = linestyle_dict.get(name, "-")
-        color = color_dict.get(name, "black")
-        error = err["err"]
-        if error == {}:
-            continue
-        plt.plot(
-            plt_rng,
-            [error[str(thr)] for thr in plt_rng],
-            color=color,
-            ls=ls,
-            linewidth=3,
-            label=name,
-        )
-plt.title("whu-sen-city")
-plt.xlim(plt_lim)
-plt.xticks(plt_rng)
-plt.ylim([0, 1])
-plt.gca().axes.set_yticklabels([])
-plt.grid()
-plt.tick_params(axis="both", which="major", labelsize=20)
-plt.legend()
+    plt.subplot(1, 3, 1)
+    for i, err in enumerate(err_list):
+        """绘制MMA曲线"""
+        dataset = err["dataset"]
+        if dataset == "osdataset":
+            name = err["method"]
+            ls = linestyle_dict.get(name, "-")
+            color = color_dict.get(name, "black")
+            error = err[key]
+            if error == {}:
+                continue
+            plt.plot(
+                plt_rng,
+                [error[str(thr)] for thr in plt_rng],
+                color=color,
+                ls=ls,
+                linewidth=3,
+                label=name,
+            )
+    plt.title("osdataset")
+    plt.xlim(plt_lim)
+    plt.xticks(plt_rng)
+    plt.ylabel("MMA")
+    plt.ylim([0, 1])
+    plt.grid()
+    plt.tick_params(axis="both", which="major", labelsize=20)
+    plt.legend()
 
-# 保存并显示图像
-plt.tight_layout()
-plt.savefig("result/MMA.png", bbox_inches="tight", dpi=300)
-plt.show()
+    plt.subplot(1, 3, 2)
+    for i, err in enumerate(err_list):
+        """绘制MMA曲线"""
+        dataset = err["dataset"]
+        if dataset == "sen1-2":
+            name = err["method"]
+            ls = linestyle_dict.get(name, "-")
+            color = color_dict.get(name, "black")
+            error = err[key]
+            if error == {}:
+                continue
+            plt.plot(
+                plt_rng,
+                [error[str(thr)] for thr in plt_rng],
+                color=color,
+                ls=ls,
+                linewidth=3,
+                label=name,
+            )
+    plt.title("sen1-2")
+    plt.xlabel("threshold [px]")
+    plt.xlim(plt_lim)
+    plt.xticks(plt_rng)
+    plt.ylim([0, 1])
+    plt.gca().axes.set_yticklabels([])
+    plt.grid()
+    plt.tick_params(axis="both", which="major", labelsize=20)
+    plt.legend()
+
+    plt.subplot(1, 3, 3)
+    for i, err in enumerate(err_list):
+        """绘制MMA曲线"""
+        dataset = err["dataset"]
+        if dataset == "whu-sen-city":
+            name = err["method"]
+            ls = linestyle_dict.get(name, "-")
+            color = color_dict.get(name, "black")
+            error = err[key]
+            if error == {}:
+                continue
+            plt.plot(
+                plt_rng,
+                [error[str(thr)] for thr in plt_rng],
+                color=color,
+                ls=ls,
+                linewidth=3,
+                label=name,
+            )
+    plt.title("whu-sen-city")
+    plt.xlim(plt_lim)
+    plt.xticks(plt_rng)
+    plt.ylim([0, 1])
+    plt.gca().axes.set_yticklabels([])
+    plt.grid()
+    plt.tick_params(axis="both", which="major", labelsize=20)
+    plt.legend()
+
+    # 保存并显示图像
+    plt.tight_layout()
+    plt.savefig(f"result/{key}.png", bbox_inches="tight", dpi=300)
+    plt.show()
+
+print("Done!")

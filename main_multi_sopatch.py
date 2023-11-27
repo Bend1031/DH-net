@@ -27,8 +27,8 @@ from utils.evaluation_utils import estimate_homo
 @hydra.main(
     version_base=None,
     config_path="conf",
-    config_name="config_multi_method.yaml",
-    # config_name="test",
+    # config_name="config_multi_method.yaml",
+    config_name="test",
 )
 def main(config):
     log = logging.getLogger(__name__)
@@ -54,15 +54,18 @@ def main(config):
     m_corr_mma = {}
     m_ransac_mma = {}
     # 利用角点进行单应性矩阵精度的评估，方式同MMA
-    # m_dists_homo_mma = {}
-    dists_homo = []
-    # 失败情况
-    failed_nums = 0
+    m_homo_mma = {}
+    # dists_homo = []
+    # 失败情况 提取失败、匹配失败，剔点失败、最后匹配失败
+    failed_nums = [0, 0, 0, 0]
 
     # 阈值3情况下的指标
     mRMSE = []
     mNCM = []
     mCMR = []
+
+    corr_pair_num = 0
+    homo_pair_num = 0
     success_num = 0
 
     # %%
@@ -83,9 +86,8 @@ def main(config):
         kpt2, desc2 = extractor.run(img2_path)
 
         if len(kpt1) == 0 or len(kpt2) == 0:
-            failed_nums += 1
+            failed_nums[0] += 1
             continue
-
         mean_extract_nums.append(np.mean([len(kpt1), len(kpt2)], dtype=int))
         # %% matcher
         test_data = {
@@ -98,21 +100,24 @@ def main(config):
         }
         corr1, corr2 = matcher.run(test_data)
         if len(corr1) <= 4 or len(corr2) <= 4:
-            failed_nums += 1
+            failed_nums[1] += 1
             continue
         mean_match_nums.append(np.mean([len(corr1), len(corr2)], dtype=int))
         corr_mma = corr_MMA(corr1, corr2)
+        corr_pair_num += 1
         for key in corr_mma:
             m_corr_mma[key] = m_corr_mma.get(key, 0) + corr_mma[key]
         # %% ransac
         H_pred, corr1, corr2 = ransac.run(corr1, corr2)
         if len(corr1) <= 4 or len(corr2) <= 4 or H_pred is None:
-            failed_nums += 1
+            failed_nums[2] += 1
             continue
         mean_ransac_nums.append(np.mean([len(corr1), len(corr2)], dtype=int))
         # %%evaluation homography estimation:list
-        corner_dist = estimate_homo(img1, H_pred)
-        dists_homo.append(corner_dist)
+        homo_mma = estimate_homo(img1, H_pred)
+        homo_pair_num += 1
+        for key in homo_mma:
+            m_homo_mma[key] = m_homo_mma.get(key, 0) + homo_mma[key]
         # %%evaluation
         RMSE, NCM, CMR, bool_list, ransac_mma = pix2pix_RMSE(corr1, corr2)
         if NCM >= 5:
@@ -123,7 +128,7 @@ def main(config):
             for key in ransac_mma:
                 m_ransac_mma[key] = m_ransac_mma.get(key, 0) + ransac_mma[key]
         else:
-            failed_nums += 1
+            failed_nums[3] += 1
 
     # %%数据集精度评估
     mean_extract_nums = int(np.mean(mean_extract_nums))
@@ -131,16 +136,11 @@ def main(config):
     mean_match_nums = int(np.mean(mean_match_nums))
     # 去除离散点后的匹配点数
     mean_ransac_nums = int(np.mean(mean_ransac_nums))
-    # homo
-    thresholds = list(range(1, 11))
-    homo_acc = np.mean(
-        [[float(dist <= t) for t in thresholds] for dist in dists_homo], axis=0
-    )
-    m_homo_mma = {t: round(acc, 3) for t, acc in zip(thresholds, homo_acc)}
-    # print(homo_acc)
 
     for key in m_corr_mma:
-        m_corr_mma[key] = round(m_corr_mma[key] / success_num, 3)
+        m_corr_mma[key] = round(m_corr_mma[key] / corr_pair_num, 3)
+    for key in m_homo_mma:
+        m_homo_mma[key] = round(m_homo_mma[key] / homo_pair_num, 3)
     for key in m_ransac_mma:
         m_ransac_mma[key] = round(m_ransac_mma[key] / success_num, 3)
 
@@ -177,6 +177,7 @@ def main(config):
     log.info(f"Dataset size:{len(imgfiles1)}")
     log.info(f"Success num:{success_num}")
     log.info(f"failed_nums: {failed_nums}")
+    log.info(f"failed_nums_sum: {sum(failed_nums)}")
     log.info(f"Success rate:{success_num / len(imgfiles1):.3f}")
     log.info(f"mean_extract_nums: {mean_extract_nums}")
     log.info(f"mean_match_nums: {mean_match_nums}")
@@ -193,5 +194,3 @@ def main(config):
 
 if __name__ == "__main__":
     main()
-
-# %%
