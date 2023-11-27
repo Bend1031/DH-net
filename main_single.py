@@ -16,7 +16,7 @@ from components import load_component
 # from lib.config import Config
 from lib.eval_match import img_align
 from lib.rootpath import rootPath
-from lib.utils import pix2pix_RMSE
+from lib.utils import corr_MMA, pix2pix_RMSE
 from utils import evaluation_utils
 
 
@@ -76,6 +76,8 @@ def main(config):
     log.info(
         f"{method.matcher.name}: match {len(corr1)} points,match time: {match_end - match_start:.2f}s"
     )
+    corr_mma = corr_MMA(corr1, corr2)
+    print(corr_mma)
 
     # %% ransac
     ransac = load_component("ransac", method.ransac.name, method.ransac)
@@ -101,21 +103,21 @@ def main(config):
 
     # %% evaluation
     # show align image
-    # img_align(img1, img2, H)
+    img_align(img1, img2, H)
 
     # # visualize match
-    # display = evaluation_utils.draw_match(
-    #     img1,
-    #     img2,
-    #     corr1,
-    #     corr2,
-    #     inlier=bool_list,
-    #     radius1=3,
-    #     radius2=3,
-    # )
+    display = evaluation_utils.draw_match(
+        img1,
+        img2,
+        corr1,
+        corr2,
+        inlier=bool_list,
+        radius1=3,
+        radius2=3,
+    )
 
-    # cv2.imshow("match", display)
-    # cv2.waitKey(0)
+    cv2.imshow("match", display)
+    cv2.waitKey(0)
 
     # cv2.imwrite(
     #     f"{method.name}.png",

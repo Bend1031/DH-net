@@ -439,6 +439,34 @@ def pix2pix_RMSE(src_pts, dst_pts, threshold=3):
     return RMSE, NCM, CMR, bool_list, err
 
 
+def corr_MMA(src_pts, dst_pts):
+    """
+    计算两组点之间的正确匹配率（Correct Match Metric Average）。
+
+    Parameters:
+    - src_pts (numpy.ndarray): 输入的源点集，形状为(n, 2)，表示n个点的坐标。
+    - dst_pts (numpy.ndarray): 输入的目标点集，形状为(n, 2)，表示n个对应点的坐标。
+
+    Returns:
+    dict: 包含不同阈值下正确匹配率的字典，阈值范围为1到10。
+
+    Raises:
+    AssertionError: 如果输入的两组点数量不一致。
+    """
+    assert src_pts.shape == dst_pts.shape, "两组点的数量不一致！"
+
+    # 输入两组点，分别表示为两个n*2的NumPy数组
+    # 计算对应点之间的距离
+    distances = np.linalg.norm(src_pts - dst_pts, axis=1)
+
+    corr_mma = {}
+    for thr in range(1, 11):
+        # 使用round函数将正确率保留到三位小数
+        corr_mma[thr] = round(np.mean(distances <= thr), 3)
+
+    return corr_mma
+
+
 def magsac(srcPoints, dstPoints, method=cv2.USAC_MAGSAC, _RESIDUAL_THRESHOLD=3):
     H, inliers = cv2.findHomography(
         srcPoints=srcPoints,
