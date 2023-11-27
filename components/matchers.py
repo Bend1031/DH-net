@@ -72,42 +72,67 @@ class GNN_Matcher(object):
         return index1, index2
 
 
+# class NN_Matcher(object):
+#     def __init__(self, config):
+#         config = namedtuple("config", config.keys())(*config.values())
+#         self.mutual_check = config.mutual_check
+#         self.ratio_th = config.ratio_th
+
+#     def run(self, test_data):
+#         desc1, desc2, x1, x2 = (
+#             test_data["desc1"],
+#             test_data["desc2"],
+#             test_data["x1"],
+#             test_data["x2"],
+#         )
+#         desc_mat = np.sqrt(
+#             abs(
+#                 (desc1**2).sum(-1)[:, np.newaxis]
+#                 + (desc2**2).sum(-1)[np.newaxis]
+#                 - 2 * desc1 @ desc2.T
+#             )
+#         )
+#         nn_index = np.argpartition(desc_mat, kth=(1, 2), axis=-1)
+#         dis_value12 = np.take_along_axis(desc_mat, nn_index, axis=-1)
+#         ratio_score = dis_value12[:, 0] / dis_value12[:, 1]
+#         nn_index1 = nn_index[:, 0]
+#         nn_index2 = np.argmin(desc_mat, axis=0)
+#         mask_ratio, mask_mutual = (
+#             ratio_score < self.ratio_th,
+#             np.arange(len(x1)) == nn_index2[nn_index1],
+#         )
+#         corr1, corr2 = x1[:, :2], x2[:, :2][nn_index1]
+#         if self.mutual_check:
+#             mask = mask_ratio & mask_mutual
+#         else:
+#             mask = mask_ratio
+#         corr1, corr2 = corr1[mask], corr2[mask]
+#         return corr1, corr2
+
+
 class NN_Matcher(object):
     def __init__(self, config):
-        config = namedtuple("config", config.keys())(*config.values())
+        # config = namedtuple("config", config.keys())(*config.values())
         self.mutual_check = config.mutual_check
-        self.ratio_th = config.ratio_th
 
     def run(self, test_data):
         desc1, desc2, x1, x2 = (
-            test_data["desc1"],
-            test_data["desc2"],
-            test_data["x1"],
-            test_data["x2"],
+            torch.from_numpy(test_data["desc1"]),
+            torch.from_numpy(test_data["desc2"]),
+            torch.from_numpy(test_data["x1"]),
+            torch.from_numpy(test_data["x2"]),
         )
-        desc_mat = np.sqrt(
-            abs(
-                (desc1**2).sum(-1)[:, np.newaxis]
-                + (desc2**2).sum(-1)[np.newaxis]
-                - 2 * desc1 @ desc2.T
-            )
-        )
-        nn_index = np.argpartition(desc_mat, kth=(1, 2), axis=-1)
-        dis_value12 = np.take_along_axis(desc_mat, nn_index, axis=-1)
-        ratio_score = dis_value12[:, 0] / dis_value12[:, 1]
-        nn_index1 = nn_index[:, 0]
-        nn_index2 = np.argmin(desc_mat, axis=0)
-        mask_ratio, mask_mutual = (
-            ratio_score < self.ratio_th,
-            np.arange(len(x1)) == nn_index2[nn_index1],
-        )
-        corr1, corr2 = x1[:, :2], x2[:, :2][nn_index1]
+
+        # 使用kornia的match_nn函数计算最近邻匹配
         if self.mutual_check:
-            mask = mask_ratio & mask_mutual
+            dis, idx = K.feature.match_mnn(desc1, desc2)
         else:
-            mask = mask_ratio
-        corr1, corr2 = corr1[mask], corr2[mask]
-        return corr1, corr2
+            dis, idx = K.feature.match_nn(desc1, desc2)
+
+        # 计算互相匹配
+        corr1, corr2 = x1[:, :2][idx[:, 0]], x2[:, :2][idx[:, 1]]
+
+        return corr1.numpy(), corr2.numpy()
 
 
 class FLANN_Matcher:
