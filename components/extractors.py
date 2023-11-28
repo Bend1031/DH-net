@@ -6,6 +6,7 @@ import kornia as K
 import kornia.feature as KF
 import numpy as np
 import torch
+from kornia.io import ImageLoadType
 from PIL import Image
 
 from lib.model_test import D2Net
@@ -242,7 +243,9 @@ class ExtractD2Net:
 
 class ExtractLoFTR:
     def __init__(self, config):
+        self.device = K.utils.get_cuda_device_if_available()
         self.pretrained = config.model
+        self.matcher = KF.LoFTR(pretrained=self.pretrained).eval().cuda()
         # pass
 
     def load_torch_image(self, fname):
@@ -251,19 +254,32 @@ class ExtractLoFTR:
         return img
 
     def run(self, img1_path, img2_path):
-        img1 = self.load_torch_image(img1_path)
-        img2 = self.load_torch_image(img2_path)
+        # img1 = self.load_torch_image(img1_path)
+        # img2 = self.load_torch_image(img2_path)
 
-        matcher = KF.LoFTR(pretrained=self.pretrained).eval().cuda()
-        # matcher = KF.LoFTR(pretrained="outdoor")
+        # matcher = KF.LoFTR(pretrained=self.pretrained).eval().cuda()
+        # # matcher = KF.LoFTR(pretrained="outdoor")
+
+        # input_dict = {
+        #     "image0": K.color.rgb_to_grayscale(img1).cuda(),  # LofTR 只在灰度图上作用
+        #     "image1": K.color.rgb_to_grayscale(img2).cuda(),
+        # }
+        # tensor 1*1*H*W
+
+        img1 = K.io.load_image(
+            img1_path, ImageLoadType.GRAY32, device=self.device
+        ).unsqueeze(0)
+        img2 = K.io.load_image(
+            img2_path, ImageLoadType.GRAY32, device=self.device
+        ).unsqueeze(0)
 
         input_dict = {
-            "image0": K.color.rgb_to_grayscale(img1).cuda(),  # LofTR 只在灰度图上作用
-            "image1": K.color.rgb_to_grayscale(img2).cuda(),
+            "image0": img1,  # LofTR 只在灰度图上作用
+            "image1": img2,
         }
         # 推理模式
         with torch.inference_mode():
-            correspondences = matcher(input_dict)
+            correspondences = self.matcher(input_dict)
         mkpts0 = correspondences["keypoints0"].cpu().numpy()
         mkpts1 = correspondences["keypoints1"].cpu().numpy()
         return mkpts0, mkpts1

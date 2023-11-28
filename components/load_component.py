@@ -50,6 +50,8 @@ def load_matcher(model_name, config):
         matcher = matchers.LightGlue_Matcher(config)
     elif model_name == "adalam":
         matcher = matchers.AdaLAM_Matcher(config)
+    elif model_name == "LoFTR":
+        matcher = None
     else:
         raise NotImplementedError
     return matcher

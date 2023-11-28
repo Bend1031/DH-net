@@ -82,23 +82,28 @@ def main(config):
             np.asarray(img2.shape[:2])
         )
         # %% extractor提取特征点和描述子
-        kpt1, desc1 = extractor.run(img1_path)
-        kpt2, desc2 = extractor.run(img2_path)
+        if method.name == "LoFTR":
+            corr1, corr2 = extractor.run(img1_path, img2_path)
+            mean_extract_nums.append(np.mean([len(corr1), len(corr2)], dtype=int))
+        else:
+            kpt1, desc1 = extractor.run(img1_path)
+            kpt2, desc2 = extractor.run(img2_path)
 
-        if len(kpt1) == 0 or len(kpt2) == 0:
-            failed_nums[0] += 1
-            continue
-        mean_extract_nums.append(np.mean([len(kpt1), len(kpt2)], dtype=int))
-        # %% matcher
-        test_data = {
-            "x1": kpt1,
-            "x2": kpt2,
-            "desc1": desc1,
-            "desc2": desc2,
-            "size1": size1,
-            "size2": size2,
-        }
-        corr1, corr2 = matcher.run(test_data)
+            if len(kpt1) == 0 or len(kpt2) == 0:
+                failed_nums[0] += 1
+                continue
+            mean_extract_nums.append(np.mean([len(kpt1), len(kpt2)], dtype=int))
+            # %% matcher
+            test_data = {
+                "x1": kpt1,
+                "x2": kpt2,
+                "desc1": desc1,
+                "desc2": desc2,
+                "size1": size1,
+                "size2": size2,
+            }
+            corr1, corr2 = matcher.run(test_data)
+
         if len(corr1) <= 4 or len(corr2) <= 4:
             failed_nums[1] += 1
             continue

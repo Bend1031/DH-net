@@ -2,9 +2,8 @@ defaults:
   - extractor: loftr
   - matcher: loftr
   - ransac: magsacpp
-  - dataset: whu-sen-city
   - _self_
-name: LOFTR
+name: LoFTR
 hydra:
   sweeper:
     params:
