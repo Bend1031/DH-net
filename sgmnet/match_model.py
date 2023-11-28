@@ -79,9 +79,6 @@ def seeding(
     mask_survive = match_score > 0
     if test:
         topk = min(mask_survive.sum(dim=1)[0] + 2, topk)
-    # if topk <= match_score.size(-1):
-    #     return torch.tensor([[0, 1]]).cuda(), torch.tensor([[0, 1]]).cuda()
-
     _, topindex = torch.topk(match_score, topk, dim=-1)  # b*k
     seed_index1, seed_index2 = topindex, nn_index1.gather(index=topindex, dim=-1)
     return seed_index1, seed_index2

@@ -23,7 +23,8 @@ class GNN_Matcher(object):
         config = namedtuple("config", config.keys())(*config.values())
         self.p_th = config.p_th
         self.model = SGM_Model(config) if model_name == "SGM" else SG_Model(config)
-        self.model.cuda(), self.model.eval()
+        self.model.cuda()
+        self.model.eval()
         checkpoint = torch.load(
             os.path.join(str(rootPath / config.model_dir), "model_best.pth")
         )
@@ -50,16 +51,20 @@ class GNN_Matcher(object):
             "desc1": torch.from_numpy(test_data["desc1"][np.newaxis]).cuda().float(),
             "desc2": torch.from_numpy(test_data["desc2"][np.newaxis]).cuda().float(),
         }
-        with torch.inference_mode():
-            res = self.model(feed_data, test_mode=True)
-            p = res["p"]
-        index1, index2 = self.match_p(p[0, :-1, :-1])
-        corr1, corr2 = (
-            test_data["x1"][:, :2][index1.cpu()],
-            test_data["x2"][:, :2][index2.cpu()],
-        )
-        if len(corr1.shape) == 1:
-            corr1, corr2 = corr1[np.newaxis], corr2[np.newaxis]
+        try:
+            with torch.inference_mode():
+                res = self.model(feed_data, test_mode=True)
+                p = res["p"]
+        except RuntimeError:
+            corr1, corr2 = np.array([]), np.array([])
+        else:
+            index1, index2 = self.match_p(p[0, :-1, :-1])
+            corr1, corr2 = (
+                test_data["x1"][:, :2][index1.cpu()],
+                test_data["x2"][:, :2][index2.cpu()],
+            )
+            if len(corr1.shape) == 1:
+                corr1, corr2 = corr1[np.newaxis], corr2[np.newaxis]
         return corr1, corr2
 
     def match_p(self, p):  # p N*M
