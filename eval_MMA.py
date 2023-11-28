@@ -131,7 +131,7 @@ for key in keys:
 
     # 保存并显示图像
     plt.tight_layout()
-    plt.savefig(f"result/{key}.png", bbox_inches="tight", dpi=300)
+    plt.savefig(f"result_img/{key}.png", bbox_inches="tight", dpi=300)
     plt.show()
 
 print("Done!")
