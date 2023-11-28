@@ -1,10 +1,8 @@
 defaults:
-  - extractor: disk
+  - extractor: sp
   - matcher: lightglue
   - ransac: magsacpp
   - _self_
 matcher:
-  extract_model: disk
-name: DISK-LightGlue
-
-  
+  extract_model: superpoint
+name: SP-LightGlue

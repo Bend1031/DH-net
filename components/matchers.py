@@ -224,8 +224,9 @@ class BF_Matcher:
 
 class LightGlue_Matcher:
     def __init__(self, config):
+        self.extract_model = config.extract_model
         self.device = K.utils.get_cuda_device_if_available()
-        self.lightglue = K.feature.LightGlueMatcher("disk").to(self.device)
+        self.lightglue = K.feature.LightGlueMatcher(self.extract_model).to(self.device)
 
     def run(self, test_data):
         desc1, desc2, kps1, kps2 = (
@@ -233,6 +234,15 @@ class LightGlue_Matcher:
             test_data["desc2"],
             test_data["x1"],
             test_data["x2"],
+        )
+        # numpy->tensor,nx3->nx2
+        kps1, kps2 = (
+            torch.from_numpy(kps1[:, :2]).to(self.device),
+            torch.from_numpy(kps2[:, :2]).to(self.device),
+        )
+        desc1, desc2 = (
+            torch.from_numpy(desc1).to(self.device),
+            torch.from_numpy(desc2).to(self.device),
         )
 
         lafs1 = KF.laf_from_center_scale_ori(
