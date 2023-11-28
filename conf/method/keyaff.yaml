@@ -1,0 +1,6 @@
+defaults:
+  - extractor: keyaff
+  - matcher: adalam
+  - ransac: magsacpp
+  - _self_
+name: KeyNetAffNetAdaLAM

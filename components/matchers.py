@@ -260,3 +260,30 @@ class LightGlue_Matcher:
             kps1[idxs[:, 0]].detach().cpu().numpy(),
             kps2[idxs[:, 1]].detach().cpu().numpy(),
         )
+
+
+class AdaLAM_Matcher:
+    def __init__(self, config):
+        self.device = K.utils.get_cuda_device_if_available()
+
+    def run(self, test_data):
+        desc1, desc2, laf1, laf2 = (
+            test_data["desc1"],
+            test_data["desc2"],
+            test_data["x1"],
+            test_data["x2"],
+        )
+
+        def get_matching_keypoints(lafs1, lafs2, idxs):
+            mkpts1 = (
+                KF.get_laf_center(lafs1).squeeze()[idxs[:, 0]].detach().cpu().numpy()
+            )
+            mkpts2 = (
+                KF.get_laf_center(lafs2).squeeze()[idxs[:, 1]].detach().cpu().numpy()
+            )
+            return mkpts1, mkpts2
+
+        with torch.inference_mode():
+            dists, idxs = KF.match_adalam(desc1, desc2, laf1, laf2)
+        corr1, corr2 = get_matching_keypoints(laf1, laf2, idxs)
+        return corr1, corr2

@@ -28,6 +28,8 @@ def load_extractor(model_name, config):
         extractor = extractors.ExtractLoFTR(config)
     elif model_name == "disk":
         extractor = extractors.ExtractDISK(config)
+    elif model_name == "keyaff":
+        extractor = extractors.ExtractKeyAff(config)
     else:
         raise NotImplementedError
     return extractor
@@ -46,6 +48,8 @@ def load_matcher(model_name, config):
         matcher = matchers.BF_Matcher(config)
     elif model_name == "LightGlue":
         matcher = matchers.LightGlue_Matcher(config)
+    elif model_name == "adalam":
+        matcher = matchers.AdaLAM_Matcher(config)
     else:
         raise NotImplementedError
     return matcher

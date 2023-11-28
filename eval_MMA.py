@@ -22,7 +22,7 @@ color_dict = {
     "CMM": "blue",
     "D2": "purple",
     "DISK-LightGlue": "cyan",
-    "SIFT": "brown",
+    "SP-LightGlue": "brown"
     # 添加更多方法名和颜色的映射
 }
 

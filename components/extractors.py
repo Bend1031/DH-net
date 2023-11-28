@@ -286,3 +286,28 @@ class ExtractDISK:
 
         # 直接在返回语句中返回关键点和描述符
         return features.keypoints, features.descriptors
+
+
+class ExtractKeyAff:
+    def __init__(self, config):
+        self.device = K.utils.get_cuda_device_if_available()
+        self.num_features = config.num_features
+        self.keyaff = K.feature.KeyNetAffNetHardNet(
+            num_features=self.num_features, device=self.device
+        ).eval()
+
+    def run(self, img_path):
+        img = K.io.load_image(img_path, K.io.ImageLoadType.GRAY32, device=self.device)[
+            None, ...
+        ]
+
+        # 推理模式
+        with torch.inference_mode():
+            lafs, _, descriptor = self.keyaff.forward(img)
+
+        # 返回numpy
+        # laf = laf.cpu().numpy()
+        # kpts = laf[:, :, 2][:, [1, 0]]
+        # descriptor = np.squeeze(descriptor.cpu().numpy(), axis=0)
+        descriptor = torch.squeeze(descriptor, dim=0)
+        return lafs, descriptor
