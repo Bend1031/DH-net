@@ -82,7 +82,8 @@ class D2Net(nn.Module):
 
 class HardDetectionModule(nn.Module):
     def __init__(self, edge_threshold=5):
-        super(HardDetectionModule, self).__init__()
+        # 调用父类构造函数
+        super().__init__()
 
         self.edge_threshold = edge_threshold
 
@@ -103,12 +104,12 @@ class HardDetectionModule(nn.Module):
         # 计算深度方向上的最大值
         depth_wise_max = torch.max(batch, dim=1)[0]
         is_depth_wise_max = batch == depth_wise_max
-        del depth_wise_max
+        # del depth_wise_max
 
         # 计算局部最大值
         local_max = F.max_pool2d(batch, 3, stride=1, padding=1)
         is_local_max = batch == local_max
-        del local_max
+        # del local_max
 
         dii = F.conv2d(
             batch.view(-1, 1, h, w), self.dii_filter.to(device), padding=1
@@ -122,13 +123,13 @@ class HardDetectionModule(nn.Module):
 
         det = dii * djj - dij * dij
         tr = dii + djj
-        del dii, dij, djj
+        # del dii, dij, djj
 
         threshold = (self.edge_threshold + 1) ** 2 / self.edge_threshold
         is_not_edge = torch.min(tr * tr / det <= threshold, det > 0)
 
         detected = torch.min(is_depth_wise_max, torch.min(is_local_max, is_not_edge))
-        del is_depth_wise_max, is_local_max, is_not_edge
+        # del is_depth_wise_max, is_local_max, is_not_edge
 
         return detected
 

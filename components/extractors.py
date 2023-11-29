@@ -130,16 +130,18 @@ class ExtractD2Net:
         use_cuda = torch.cuda.is_available()
         self.model_path = config.model_path
         # Creating CNN model
-        self.model = D2Net(model_file=rootPath / self.model_path, use_cuda=use_cuda)
-        # model = D2Net(model_file="checkpoints/qxslab/qxs.18.pth", use_cuda=use_cuda)
+        self.model = D2Net(
+            model_file=rootPath / self.model_path, use_cuda=use_cuda
+        ).eval()
         self.device = torch.device("cuda:0" if use_cuda else "cpu")
 
-        self.multiscale = False
+        self.multiscale = config.multiscale
         self.max_edge = 2500
         self.max_sum_edges = 5000
         self.is_split = config.is_split
 
     def run(self, img_path, scales=[0.25, 0.50, 1.0], nfeatures=-1):
+        # 灰度读取
         image = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
 
         # repeat single channel image to 3 channel
@@ -154,6 +156,7 @@ class ExtractD2Net:
                 image[: h // 2, w // 2 :],
                 image[h // 2 :, : w // 2],
                 image[h // 2 :, w // 2 :],
+                # image,
             ]
         else:
             images = [image]
