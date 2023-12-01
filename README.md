@@ -1,111 +1,137 @@
-# D2-Net: A Trainable CNN for Joint Detection and Description of Local Features
+# DH-Net: Image Registration for Heterologous SAR and Optical Images by using Detection and Description of Local Features
 
-This repository contains the implementation of the following paper:
+## Requirements
 
-```text
-"D2-Net: A Trainable CNN for Joint Detection and Description of Local Features".
-M. Dusmanu, I. Rocco, T. Pajdla, M. Pollefeys, J. Sivic, A. Torii, and T. Sattler. CVPR 2019.
+We use PyTorch 1.10 whit Python 3.8, later version should also be compatible. Please refer to requirements.txt for other dependencies.
+
+If you are using conda, you may configure the environment as:
+
+```bash
+conda env create -f environment.yml
+conda activate match
 ```
 
-[Paper on arXiv](https://arxiv.org/abs/1905.03561), [Project page](https://dsmn.ml/publications/d2-net.html)
-    
 ## Getting started
 
-Python 3.6+ is recommended for running our code. [Conda](https://docs.conda.io/en/latest/) can be used to install the required packages:
+Clone the repo:
+```bash
+git clone https://github.com/bend1031/DH-net.git && \
+```
+## Downloading the weights
+
+
+The off-the-shelf weights can be downloaded by running:
 
 ```bash
-conda install pytorch torchvision cudatoolkit=10.0 -c pytorch
-conda install h5py imageio imagesize matplotlib numpy scipy tqdm
+mkdir weights/d2
+wget https://dsmn.ml/files/d2-net/d2_ots.pth -O weights/d2/d2_ots.pth
+wget https://dsmn.ml/files/d2-net/d2_tf.pth -O weights/d2/d2_tf.pth
+wget https://dsmn.ml/files/d2-net/d2_tf_no_phototourism.pth -O weights/d2/d2_tf_no_phototourism.pth
 ```
 
-## Downloading the models
+and download model weights from [here](https://drive.google.com/file/d/1Ca0WmKSSt2G6P7m8YAOlSAHEFar_TAWb/view?usp=sharing)
 
-The off-the-shelf **Caffe VGG16** weights and their tuned counterpart can be downloaded by running:
+extract weights by
 
 ```bash
-mkdir models
-wget https://dsmn.ml/files/d2-net/d2_ots.pth -O models/d2_ots.pth
-wget https://dsmn.ml/files/d2-net/d2_tf.pth -O models/d2_tf.pth
-wget https://dsmn.ml/files/d2-net/d2_tf_no_phototourism.pth -O models/d2_tf_no_phototourism.pth
+tar -xvf weights.tar.gz
 ```
 
-**Update - 23 May 2019** We have added a new set of weights trained on MegaDepth without the PhotoTourism scenes (sagrada_familia - 0019, lincoln_memorial_statue - 0021, british_museum - 0024, london_bridge - 0025, us_capitol - 0078, mount_rushmore - 1589). Our initial results show similar performance. In order to use these weights at test time, you should add `--model_file models/d2_tf_no_phototourism.pth`.
-
-## Feature extraction
-
-`extract_features.py` can be used to extract D2 features for a given list of images. The singlescale features require less than 6GB of VRAM for 1200x1600 images. The `--multiscale` flag can be used to extract multiscale features - for this, we recommend at least 12GB of VRAM. 
-
-The output format can be either [`npz`](https://docs.scipy.org/doc/numpy/reference/generated/numpy.savez.html) or `mat`. In either case, the feature files encapsulate three arrays: 
-
-- `keypoints` [`N x 3`] array containing the positions of keypoints `x, y` and the scales `s`. The positions follow the COLMAP format, with the `X` axis pointing to the right and the `Y` axis to the bottom.
-- `scores` [`N`] array containing the activations of keypoints (higher is better).
-- `descriptors` [`N x 512`] array containing the L2 normalized descriptors.
+the structure of weights is as follows:
 
 ```bash
-python extract_features.py --image_list_file images.txt (--multiscale)
+weights
+    ├─d2
+    ├─sg
+    │  ├─root
+    │  └─sp
+    ├─sgm
+    │  ├─root
+    │  └─sp
+    └─sp
+```
+## Matching Pairs
+
+A quick demo for image matching can be called by:
+
+1. change path1 and path2 in main_single.py
+2. run main_single.py
+```bash
+python main_single.py
 ```
 
-# Feature extraction with kapture datasets
+## Evaluation on SOPatch
 
-Kapture is a pivot file format, based on text and binary files, used to describe SFM (Structure From Motion) and more generally sensor-acquired data.
+### download SOPatch dataset
 
-It is available at https://github.com/naver/kapture.
-It contains conversion tools for popular formats and several popular datasets are directly available in kapture.
+https://pan.baidu.com/s/12yIheGOg6JTTsYAQfX7Pfg?pwd=1234
 
-It can be installed with:
+the structure of dataset is as follows:
+
 ```bash
-pip install kapture
+DATASETS
+─SOPatch
+  ├─OSdataset
+  │  ├─test
+  │  │  ├─opt
+  │  │  └─sar
+  │  ├─train
+  │  │  ├─opt
+  │  │  └─sar
+  │  └─val
+  │      ├─opt
+  │      └─sar
+  ├─SEN1-2
+  │  ├─test
+  │  │  ├─opt
+  │  │  └─sar
+  │  ├─train
+  │  │  ├─opt
+  │  │  └─sar
+  │  └─val
+  │      ├─opt
+  │      └─sar
+  └─WHU-SEN-City
+      ├─test
+      │  ├─opt
+      │  └─sar
+      ├─train
+      │  ├─opt
+      │  └─sar
+      └─val
+          ├─opt
+          └─sar
 ```
 
-Datasets can be downloaded with:
-```bash
-kapture_download_dataset.py update
-kapture_download_dataset.py list
-# e.g.: install mapping and query of Extended-CMU-Seasons_slice22
-kapture_download_dataset.py install "Extended-CMU-Seasons_slice22_*"
-```
-If you want to convert your own dataset into kapture, please find some examples [here](https://github.com/naver/kapture/blob/master/doc/datasets.adoc).
-
-Once installed, you can extract keypoints for your kapture dataset with:
-```bash
-python extract_kapture.py --kapture-root pathto/yourkapturedataset (--multiscale)
-```
-
-Run `python extract_kapture.py --help` for more information on the extraction parameters. 
-
-## Tuning on MegaDepth
-
-The training pipeline provided here is a PyTorch implementation of the TensorFlow code that was used to train the model available to download above.
-
-**Update - 05 June 2019** We have fixed a bug in the dataset preprocessing - retraining now yields similar results to the original TensorFlow implementation.
-
-**Update - 07 August 2019** We have released an updated, more accurate version of the training dataset - training is more stable and significantly faster for equal performance.
-
-### Downloading and preprocessing the MegaDepth dataset
-
-For this part, [COLMAP](https://colmap.github.io/) should be installed. Please refer to the official website for installation instructions.
-
-After downloading the entire [MegaDepth](http://www.cs.cornell.edu/projects/megadepth/) dataset (including SfM models), the first step is generating the undistorted reconstructions. This can be done by calling `undistort_reconstructions.py` as follows:
+Run the following command to evaluate the model on SOPatch dataset:
 
 ```bash
-python undistort_reconstructions.py --colmap_path /path/to/colmap/executable --base_path /path/to/megadepth
-```
-
-Next, `preprocess_megadepth.sh` can be used to retrieve the camera parameters and compute the overlap between images for all scenes. 
-
-```bash
-bash preprocess_undistorted_megadepth.sh /path/to/megadepth /path/to/output/folder
-```
-
-### Training
-
-After downloading and preprocessing MegaDepth, the training can be started right away:
-
-```bash
-python train.py --use_validation --dataset_path /path/to/megadepth --scene_info_path /path/to/preprocessing/output
+python main_multi_sopatch.py -m
 ```
 
 ## BibTeX
+
+Thanks for kornia.
+
+Thanks a lot for the great works of the following papers.
+
+Part of the code is borrowed or ported from
+
+SGMNet
+
+D2-Net
+
+LoFTR
+
+SuperPoint
+
+SuperGlue
+
+LightGlue
+
+Disk
+
+Please also cite these works if you find the corresponding code useful.
 
 If you use this code in your project, please cite the following paper:
 
@@ -115,5 +141,11 @@ If you use this code in your project, please cite the following paper:
     title = {{D2-Net: A Trainable CNN for Joint Detection and Description of Local Features}},
     booktitle = {Proceedings of the 2019 IEEE/CVF Conference on Computer Vision and Pattern Recognition},
     year = {2019},
+}
+@article{chen2021sgmnet,
+  title={Learning to Match Features with Seeded Graph Matching Network},
+  author={Chen, Hongkai and Luo, Zixin and Zhang, Jiahui and Zhou, Lei and Bai, Xuyang and Hu, Zeyu and Tai, Chiew-Lan and Quan, Long},
+  journal={International Conference on Computer Vision (ICCV)},
+  year={2021}
 }
 ```
