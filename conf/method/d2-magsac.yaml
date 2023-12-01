@@ -1,8 +1,8 @@
 defaults:
   - extractor: d2
   - matcher: nn
-  - ransac: ransac
+  - ransac: magsacpp
   - _self_
 extractor:
   mutual_check: False
-name: D2
+name: D2+magsac++

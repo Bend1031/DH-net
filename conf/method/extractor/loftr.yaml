@@ -1,2 +1,3 @@
 name: loftr
-model: indoor
+# model: indoor
+model: outdoor

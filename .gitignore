@@ -19,3 +19,4 @@ outputs
 weights
 imgs
 log
+*.code-workspace

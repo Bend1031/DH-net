@@ -9,7 +9,7 @@ import cv2  # type:ignore
 import hydra
 import numpy as np
 from matplotlib import pyplot as plt
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import OmegaConf
 
 from components import load_component
 
@@ -54,6 +54,8 @@ def main(config):
     start = time.perf_counter()
     kpt1, desc1 = extractor.run(img1_path)
     kpt2, desc2 = extractor.run(img2_path)
+    # np.save("kpt1_no.npy", kpt1)
+    # np.save("desc1_no.npy", desc1)
     end = time.perf_counter()
     log.info(
         f"{method.extractor.name}: extract {len(kpt1)},{len(kpt2)} points, extract time: {end - start:.2f}s"
@@ -103,21 +105,21 @@ def main(config):
 
     # %% evaluation
     # show align image
-    img_align(img1, img2, H)
+    # img_align(img1, img2, H)
 
-    # # visualize match
-    display = evaluation_utils.draw_match(
-        img1,
-        img2,
-        corr1,
-        corr2,
-        inlier=bool_list,
-        radius1=3,
-        radius2=3,
-    )
+    # # # visualize match
+    # display = evaluation_utils.draw_match(
+    #     img1,
+    #     img2,
+    #     corr1,
+    #     corr2,
+    #     inlier=bool_list,
+    #     radius1=3,
+    #     radius2=3,
+    # )
 
-    cv2.imshow("match", display)
-    cv2.waitKey(0)
+    # cv2.imshow("match", display)
+    # cv2.waitKey(0)
 
     # cv2.imwrite(
     #     f"{method.name}.png",

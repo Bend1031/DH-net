@@ -1,5 +1,5 @@
 name: d2
 model_path: "weights/d2/d2_tf.pth"
 is_split: False
+multiscale: False
 # is_split: True
-# model_path: "checkpoints/d2.10.pth"

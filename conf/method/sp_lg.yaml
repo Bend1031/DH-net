@@ -5,4 +5,4 @@ defaults:
   - _self_
 matcher:
   extract_model: superpoint
-name: SP-LightGlue
+name: SP-LG

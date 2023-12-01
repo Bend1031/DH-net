@@ -27,8 +27,8 @@ from utils.evaluation_utils import estimate_homo
 @hydra.main(
     version_base=None,
     config_path="conf",
-    # config_name="config_multi_method.yaml",
-    config_name="test",
+    config_name="config_multi_method_ablation.yaml",
+    # config_name="test",
 )
 def main(config):
     log = logging.getLogger(__name__)

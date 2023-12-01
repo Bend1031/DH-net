@@ -1,4 +1,4 @@
 defaults:
-  - method: disk_lg
+  - method: ours
   - dataset: whu-sen-city
   - _self_

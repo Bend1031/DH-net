@@ -1,5 +1,5 @@
 defaults:
-  - method: disk_lg
+  - method: loftr
   # - override method/dataset: testdataset
   - _self_
   - dataset: testdataset
