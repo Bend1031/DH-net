@@ -5,7 +5,7 @@ defaults:
 hydra:
   sweeper:
     params:
-      method: d2, d2-mnn, d2-magsac,dh,
+      method: d2,d2-mnn,d2-magsac,dh
       dataset: osdataset,sen1-2,whu-sen-city
   sweep:
     dir: log/multirun/${method.name}/${now:%Y-%m-%d_%H-%M-%S}
