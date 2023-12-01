@@ -3,6 +3,6 @@ defaults:
   - matcher: nn
   - ransac: ransac
   - _self_
-extractor:
+matcher:
   mutual_check: False
 name: D2
