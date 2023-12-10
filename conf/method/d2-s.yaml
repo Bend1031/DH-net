@@ -1,0 +1,10 @@
+defaults:
+  - extractor: d2
+  - matcher: nn
+  - ransac: ransac
+  - _self_
+matcher:
+  mutual_check: False
+extractor:
+  is_split: True
+name: D2-S
