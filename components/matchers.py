@@ -198,14 +198,19 @@ class LightGlue_Matcher:
             test_data["x2"],
         )
         # numpy->tensor,nx3->nx2
-        kps1, kps2 = (
-            torch.from_numpy(kps1[:, :2]).to(self.device),
-            torch.from_numpy(kps2[:, :2]).to(self.device),
-        )
-        desc1, desc2 = (
-            torch.from_numpy(desc1).to(self.device),
-            torch.from_numpy(desc2).to(self.device),
-        )
+        # 判断是否需要转换为tensor
+        if not isinstance(kps1, torch.Tensor):
+            kps1, kps2 = (
+                torch.from_numpy(kps1[:, :2]).to(self.device),
+                torch.from_numpy(kps2[:, :2]).to(self.device),
+            )
+            desc1, desc2 = (
+                torch.from_numpy(desc1).to(self.device),
+                torch.from_numpy(desc2).to(self.device),
+            )
+        else:
+            kps1, kps2 = kps1[:, :2].to(self.device), kps2[:, :2].to(self.device)
+            desc1, desc2 = desc1.to(self.device), desc2.to(self.device)
 
         lafs1 = KF.laf_from_center_scale_ori(
             kps1[None], torch.ones(1, len(kps1), 1, 1, device=self.device)
